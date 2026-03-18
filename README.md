@@ -39,8 +39,6 @@ jailoc up
 jailoc attach
 ```
 
-The password is optional but recommended. Without it, the server accepts any connection on the assigned port.
-
 ## Configuration
 
 Config lives at `~/.config/jailoc/config.toml`. It's created automatically on first run with a `default` workspace.
@@ -71,7 +69,7 @@ allowed_networks = ["172.20.0.0/16"]
 
 **Port allocation:** workspace names are sorted alphabetically, then ports are assigned starting at 4096. So with workspaces `api` and `frontend`, `api` gets port 4096 and `frontend` gets 4097. The `default` workspace is typically alone and gets 4096.
 
-**`paths`** — directories to mount into `/workspace` inside the container. Supports `~` expansion.
+**`paths`** — directories to mount into the container at their original absolute path (e.g. `/home/you/projects/api` on the host becomes `/home/you/projects/api` inside the container). Paths under system directories (`/usr`, `/etc`, `/var`, `/home/agent`, …) are rejected to prevent conflicts with the container runtime. Supports `~` expansion.
 
 **`allowed_hosts`** — hostnames resolved at container startup and added as iptables ACCEPT rules before the private-network DROP rules.
 
@@ -93,6 +91,31 @@ Use `--workspace` / `-w` to target a specific workspace (default: `default`).
 | `jailoc logs` | Stream container logs from the workspace environment. |
 | `jailoc config` | Print the current resolved config. |
 | `jailoc add` | Add the current directory to a workspace's paths. |
+
+## Access Modes
+
+jailoc supports two modes for connecting to the OpenCode server inside the container:
+
+- **remote** (default when `opencode` is installed): Runs `opencode attach` on the host, connecting over the exposed port.
+- **exec**: Runs `docker exec` into the container and launches `opencode` TUI directly inside.
+
+Auto-detect selects `remote` if `opencode` is found on your PATH, otherwise falls back to `exec`.
+
+Set in config for a permanent default:
+
+```toml
+# mode = ""        # auto-detect (default)
+# mode = "remote"  # always use host opencode attach
+# mode = "exec"    # always use docker exec
+```
+
+Or override per-run with flags:
+
+```bash
+jailoc              # auto-detect
+jailoc --remote     # force remote mode
+jailoc --exec       # force exec mode
+```
 
 ## Custom Images
 
@@ -149,7 +172,7 @@ When you run any jailoc command, it reads `~/.config/jailoc/config.toml`, creati
 
 **Entrypoint** — the container starts as root so it can set up iptables rules and chown the data volume. It then drops to UID 1000 (`agent`) via `setpriv --inh-caps=-all --no-new-privs` before executing the OpenCode server process.
 
-**Volume mounts** — workspace paths are bind-mounted into `/workspace`. OpenCode config directories (`~/.config/opencode`, `~/.opencode`, `~/.claude`, `~/.agents`) are mounted read-only. An isolated named volume holds the OpenCode data directory, keeping the agent's database and auth tokens separate from the host.
+**Volume mounts** — workspace paths are bind-mounted at their original absolute path (host path = container path). OpenCode config directories (`~/.config/opencode`, `~/.opencode`, `~/.claude`, `~/.agents`) are mounted read-only. An isolated named volume holds the OpenCode data directory, keeping the agent's database and auth tokens separate from the host.
 
 ## Security
 
