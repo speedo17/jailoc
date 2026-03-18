@@ -44,8 +44,8 @@ changelog:
 
 release:
   github:
-    owner: "TODO-group"  
-    name: "oc-jail"
+    owner: "seznam"
+    name: "jailoc"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
