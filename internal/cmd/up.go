@@ -59,7 +59,7 @@ func runUp(ctx context.Context) error {
 	}
 
 	cacheDir := ComposeCacheDir(ws.Name)
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o750); err != nil {
 		return fmt.Errorf("create compose cache directory %q: %w", cacheDir, err)
 	}
 
@@ -91,11 +91,11 @@ func preflightDocker(ctx context.Context, workspaceName string) error {
 	if err != nil {
 		return fmt.Errorf("create preflight temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	tmpComposePath := filepath.Join(tmpDir, "docker-compose.yml")
 	content := []byte("services:\n  opencode:\n    image: busybox\n")
-	if err := os.WriteFile(tmpComposePath, content, 0o644); err != nil {
+	if err := os.WriteFile(tmpComposePath, content, 0o600); err != nil {
 		return fmt.Errorf("write preflight compose file: %w", err)
 	}
 

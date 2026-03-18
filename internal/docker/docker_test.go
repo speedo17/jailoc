@@ -92,11 +92,11 @@ func TestResolveImageConfigPath(t *testing.T) {
 	}
 
 	configDir := filepath.Dir(overridePath)
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
+	if err := os.MkdirAll(configDir, 0o750); err != nil {
 		t.Fatalf("create config dir %q: %v", configDir, err)
 	}
 
-	if err := os.WriteFile(overridePath, []byte("FROM alpine:3.22\n"), 0o644); err != nil {
+	if err := os.WriteFile(overridePath, []byte("FROM alpine:3.22\n"), 0o600); err != nil {
 		t.Fatalf("create override dockerfile %q: %v", overridePath, err)
 	}
 
