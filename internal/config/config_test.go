@@ -27,7 +27,7 @@ func TestLoadFullConfig(t *testing.T) {
 	path := filepath.Join(dir, "config.toml")
 	writeFile(t, path, `
 [image]
-repository = "registry.github.com/seznam/jailoc-custom"
+repository = "ghcr.io/seznam/jailoc-custom"
 
 [workspaces.default]
 paths = ["/workspace"]
@@ -41,7 +41,7 @@ build_context = "/tmp/context"
 		t.Fatalf("LoadFrom failed: %v", err)
 	}
 
-	if cfg.Image.Repository != "registry.github.com/seznam/jailoc-custom" {
+	if cfg.Image.Repository != "ghcr.io/seznam/jailoc-custom" {
 		t.Fatalf("unexpected image repository: %q", cfg.Image.Repository)
 	}
 
@@ -97,7 +97,7 @@ func TestRoundTrip(t *testing.T) {
 	path := filepath.Join(dir, "config.toml")
 	writeFile(t, path, `
 [image]
-repository = "registry.github.com/seznam/jailoc"
+repository = "ghcr.io/seznam/jailoc"
 
 [workspaces.default]
 paths = ["/workspace", "/work2"]
@@ -145,19 +145,15 @@ func TestValidateRejectsUppercaseName(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsEmptyPaths(t *testing.T) {
+func TestValidateAllowsEmptyPaths(t *testing.T) {
 	cfg := &Config{
 		Workspaces: map[string]Workspace{
 			"default": {Paths: []string{}},
 		},
 	}
 
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-	if !strings.Contains(err.Error(), "default") {
-		t.Fatalf("expected error to contain workspace name, got: %v", err)
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("expected no error for empty paths, got: %v", err)
 	}
 }
 
@@ -217,7 +213,7 @@ func TestLoadMissingFileAutoCreates(t *testing.T) {
 	}
 }
 
-func TestLoadExistingEmptyPathsFails(t *testing.T) {
+func TestLoadExistingEmptyPathsOk(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -226,12 +222,13 @@ func TestLoadExistingEmptyPathsFails(t *testing.T) {
 paths = []
 `)
 
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected validation error for existing config with empty paths")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected no error for empty paths, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "default") {
-		t.Fatalf("expected error to mention workspace name, got: %v", err)
+	ws := cfg.Workspaces["default"]
+	if len(ws.Paths) != 0 {
+		t.Fatalf("expected empty paths, got %#v", ws.Paths)
 	}
 }
 

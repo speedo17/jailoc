@@ -1,3 +1,5 @@
+![jailoc](docs/hero.jpeg)
+
 # jailoc
 
 Manage sandboxed Docker Compose environments for headless OpenCode coding agents.
@@ -14,7 +16,7 @@ Requires Docker with Compose V2 (`docker compose`, not `docker-compose`).
 go install github.com/seznam/jailoc/cmd/jailoc@latest
 ```
 
-Alternatively, download a pre-built binary from [Releases](https://github.com/seznam/jailoc/-/releases) (built by GoReleaser for Linux and macOS, amd64 and arm64).
+Alternatively, download a pre-built binary from [Releases](https://github.com/seznam/jailoc/releases) (built by GoReleaser for Linux and macOS, amd64 and arm64).
 
 ## Quick Start
 
@@ -22,7 +24,7 @@ The simplest way to get going is to run `jailoc` with no arguments from your pro
 
 ```bash
 cd ~/myproject
-OPENCODE_SERVER_PASSWORD=secret jailoc
+jailoc
 ```
 
 On first run, this creates `~/.config/jailoc/config.toml`. If the current directory isn't in any workspace yet, jailoc asks whether to add it. Then it starts the Docker Compose environment and attaches via `opencode attach`.
@@ -31,10 +33,10 @@ For explicit control, use the subcommands directly:
 
 ```bash
 # Start the environment in the background
-OPENCODE_SERVER_PASSWORD=secret jailoc up
+jailoc up
 
 # Attach your local opencode TUI to it
-OPENCODE_SERVER_PASSWORD=secret jailoc attach
+jailoc attach
 ```
 
 The password is optional but recommended. Without it, the server accepts any connection on the assigned port.
@@ -45,8 +47,8 @@ Config lives at `~/.config/jailoc/config.toml`. It's created automatically on fi
 
 ```toml
 [image]
-# Override the base image registry (default: registry.github.com/seznam/jailoc)
-# repository = "registry.github.com/seznam/jailoc"
+# Override the base image registry (default: ghcr.io/seznam/jailoc)
+# repository = "ghcr.io/seznam/jailoc"
 
 [workspaces.default]
 paths = ["/home/you/projects/myproject"]

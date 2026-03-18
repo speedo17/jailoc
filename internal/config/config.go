@@ -13,12 +13,12 @@ import (
 )
 
 const (
-	defaultImageRepository = "registry.github.com/seznam/jailoc"
+	defaultImageRepository = "ghcr.io/seznam/jailoc"
 	defaultConfigContent   = `# jailoc configuration
 # See: https://github.com/seznam/jailoc
 
 [image]
-# repository = "registry.github.com/seznam/jailoc"  # default registry
+# repository = "ghcr.io/seznam/jailoc"  # default registry
 
 [workspaces.default]
 paths = []
@@ -164,10 +164,6 @@ func Validate(cfg *Config) error {
 		ws := cfg.Workspaces[name]
 		if err := expandPaths(&ws); err != nil {
 			return fmt.Errorf("workspace %q: expand paths: %w", name, err)
-		}
-
-		if len(ws.Paths) < 1 {
-			return fmt.Errorf("workspace %q has no paths configured", name)
 		}
 
 		for _, p := range ws.Paths {
