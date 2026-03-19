@@ -5,10 +5,10 @@
 Nejrychlejší cesta — potřebuješ jen Go toolchain:
 
 ```bash
-go install github.com/seznam/jailoc/cmd/jailoc@latest
+go install github.com/seznam/jailoc/cmd/jailoc@{{ version }}
 ```
 
-## 🗂️ Předem sestavené bináry
+## 🗂️ Připravené binárky
 
 Případně stáhni předem sestavenou binárku — Sisyphus zajistí každé vydání.
 

@@ -66,7 +66,7 @@ Přeloží název workspacu na `Resolved` struct s rozvinutými absolutními ces
 
 - **Přidělování portů**: všechny názvy workspaců seřazené abecedně, port = `4096 + index`
 - **CWD matching**: `ResolveFromCWD()` najde, kterému workspacu patří aktuální adresář (používá se příkazem `jailoc` bez argumentů)
-- **Rozvinutí cest**: `~` se rozvine na `$HOME`
+- **Expanze cest**: `~` se rozvine na `$HOME`
 
 ### `compose`
 
@@ -127,7 +127,7 @@ Dvě služby na workspace, propojené přes interní Docker network:
 │  │  :4096 → host port    │  │                    │  │
 │  │                       │  │  Shared volumes:   │  │
 │  │  Mounts:              │  │  - certs (TLS)     │  │
-│  │  - /workspace/* (rw)  │  │  - docker data     │  │
+│  │  - paths/* (rw)       │  │  - docker data     │  │
 │  │  - ~/.config/oc (ro)  │  │                    │  │
 │  │  - /etc/jailoc (ro)   │  │                    │  │
 │  └──────────┬────────────┘  └────────────────────┘  │
