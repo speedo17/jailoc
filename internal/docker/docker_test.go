@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -154,4 +155,22 @@ func TestApplyWorkspaceLayerInputValidation(t *testing.T) {
 			t.Fatalf("unexpected error: got %q, want %q", err.Error(), "workspace name is empty")
 		}
 	})
+}
+
+func TestBuildPresetImageEmptyContent(t *testing.T) {
+	t.Parallel()
+	_, err := buildPresetImage(context.Background(), nil, nil)
+	if err == nil {
+		t.Fatal("expected error for nil content")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("unexpected error message: got %q, want message containing \"empty\"", err.Error())
+	}
+	_, err = buildPresetImage(context.Background(), nil, []byte{})
+	if err == nil {
+		t.Fatal("expected error for empty content")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("unexpected error message: got %q, want message containing \"empty\"", err.Error())
+	}
 }

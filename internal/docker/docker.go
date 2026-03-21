@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -195,6 +196,28 @@ func (c *Client) initComposeSvc() error {
 }
 
 func ResolveImage(ctx context.Context, cfg *config.Config, version string) (string, error) {
+	if cfg != nil && strings.TrimSpace(cfg.Image.Dockerfile) != "" {
+		rawURL := strings.TrimSpace(cfg.Image.Dockerfile)
+		fmt.Printf("Building preset base image from %s...\n", rawURL)
+		content, err := fetchDockerfile(ctx, rawURL)
+		if err != nil {
+			return "", fmt.Errorf("fetch preset dockerfile: %w", err)
+		}
+
+		engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+		if err != nil {
+			return "", fmt.Errorf("create Docker Engine client for preset build: %w", err)
+		}
+		defer func() { _ = engineCli.Close() }()
+
+		tag, err := buildPresetImage(ctx, engineCli, content)
+		if err != nil {
+			return "", fmt.Errorf("build preset image: %w", err)
+		}
+
+		return tag, nil
+	}
+
 	configDir := config.ConfigDir()
 	baseOverride := baseDockerfileOverridePath()
 
@@ -302,6 +325,74 @@ func ResolveImage(ctx context.Context, cfg *config.Config, version string) (stri
 	_, _ = fmt.Fprintf(os.Stderr, "warning: using embedded Dockerfile fallback image %q\n", embeddedTag)
 
 	return embeddedTag, nil
+}
+
+func ResolvePresetImage(ctx context.Context, rawURL string) (string, error) {
+	fmt.Printf("Building preset base image from %s...\n", rawURL)
+
+	content, err := fetchDockerfile(ctx, rawURL)
+	if err != nil {
+		return "", fmt.Errorf("fetch preset dockerfile from %s: %w", rawURL, err)
+	}
+
+	engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	if err != nil {
+		return "", fmt.Errorf("create Docker Engine client for preset build: %w", err)
+	}
+	defer func() { _ = engineCli.Close() }()
+
+	tag, err := buildPresetImage(ctx, engineCli, content)
+	if err != nil {
+		return "", fmt.Errorf("build preset image: %w", err)
+	}
+
+	return tag, nil
+}
+
+func buildPresetImage(ctx context.Context, cli dockerclient.APIClient, dockerfileContent []byte) (string, error) {
+	if len(dockerfileContent) == 0 {
+		return "", fmt.Errorf("dockerfile content is empty")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "jailoc-preset-dockerfile-")
+	if err != nil {
+		return "", fmt.Errorf("create temp directory for preset Dockerfile: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	if err := os.WriteFile(dockerfilePath, dockerfileContent, 0o600); err != nil {
+		return "", fmt.Errorf("write preset Dockerfile to %q: %w", dockerfilePath, err)
+	}
+
+	entrypointPath := filepath.Join(tmpDir, "entrypoint.sh")
+	if err := os.WriteFile(entrypointPath, embed.Entrypoint(), 0o600); err != nil {
+		return "", fmt.Errorf("write entrypoint.sh to %q: %w", entrypointPath, err)
+	}
+
+	hash := sha256.Sum256(dockerfileContent)
+	presetTag := fmt.Sprintf("jailoc-base:preset-%x", hash[:8])
+
+	buildCtx, err := archive.TarWithOptions(tmpDir, &archive.TarOptions{})
+	if err != nil {
+		return "", fmt.Errorf("create build context tar for %q: %w", tmpDir, err)
+	}
+	defer func() { _ = buildCtx.Close() }()
+
+	resp, err := cli.ImageBuild(ctx, buildCtx, build.ImageBuildOptions{
+		Tags:   []string{presetTag},
+		Remove: true,
+	})
+	if err != nil {
+		return "", fmt.Errorf("build preset image in %q: %w", tmpDir, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if err := displayStream(resp.Body); err != nil {
+		return "", fmt.Errorf("read preset build output: %w", err)
+	}
+
+	return presetTag, nil
 }
 
 func ApplyWorkspaceLayer(ctx context.Context, base, workspaceName string) (string, error) {
