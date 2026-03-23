@@ -23,6 +23,7 @@ import (
 
 	"github.com/seznam/jailoc/internal/config"
 	"github.com/seznam/jailoc/internal/embed"
+	"github.com/seznam/jailoc/internal/workspace"
 )
 
 func displayStream(r io.Reader) error {
@@ -195,13 +196,12 @@ func (c *Client) initComposeSvc() error {
 	return c.svcErr
 }
 
-func ResolveImage(ctx context.Context, cfg *config.Config, version string) (string, error) {
+func ResolveBaseImage(ctx context.Context, cfg *config.Config, version string) (string, error) {
 	if cfg != nil && strings.TrimSpace(cfg.Image.Dockerfile) != "" {
-		rawURL := strings.TrimSpace(cfg.Image.Dockerfile)
-		fmt.Printf("Building preset base image from %s...\n", rawURL)
-		content, err := fetchDockerfile(ctx, rawURL)
+		source := strings.TrimSpace(cfg.Image.Dockerfile)
+		content, err := loadDockerfile(ctx, source)
 		if err != nil {
-			return "", fmt.Errorf("fetch preset dockerfile: %w", err)
+			return "", fmt.Errorf("load dockerfile from %q: %w", source, err)
 		}
 
 		engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
@@ -218,135 +218,87 @@ func ResolveImage(ctx context.Context, cfg *config.Config, version string) (stri
 		return tag, nil
 	}
 
-	configDir := config.ConfigDir()
-	baseOverride := baseDockerfileOverridePath()
+	if cfg != nil && strings.TrimSpace(cfg.Image.Repository) != "" {
+		tag := fmt.Sprintf("%s:%s", strings.TrimSpace(cfg.Image.Repository), version)
 
-	hasBaseOverride, err := fileExists(baseOverride)
-	if err != nil {
-		return "", fmt.Errorf("check base Dockerfile override at %q: %w", baseOverride, err)
-	}
-
-	if hasBaseOverride {
-		const localTag = "jailoc-base:local"
 		engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
 		if err != nil {
-			return "", fmt.Errorf("create Docker Engine client: %w", err)
+			return "", fmt.Errorf("create Docker Engine client for pull: %w", err)
 		}
 		defer func() { _ = engineCli.Close() }()
 
-		buildCtx, err := archive.TarWithOptions(configDir, &archive.TarOptions{})
-		if err != nil {
-			return "", fmt.Errorf("create build context tar for %q: %w", configDir, err)
-		}
-		defer func() { _ = buildCtx.Close() }()
-
-		resp, err := engineCli.ImageBuild(ctx, buildCtx, build.ImageBuildOptions{
-			Tags:   []string{localTag},
-			Remove: true,
-		})
-		if err != nil {
-			return "", fmt.Errorf("build local base image from %q: %w", configDir, err)
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if err := displayStream(resp.Body); err != nil {
-			return "", fmt.Errorf("read build output: %w", err)
+		if err := pullImage(ctx, engineCli, tag); err != nil {
+			return "", fmt.Errorf("pull base image %q: %w", tag, err)
 		}
 
-		return localTag, nil
-	}
-
-	if cfg != nil && strings.TrimSpace(cfg.Image.Repository) != "" {
-		tag := fmt.Sprintf("%s:%s", cfg.Image.Repository, version)
-		engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to create Docker Engine client to pull image %q: %v\n", tag, err)
-		} else {
-			defer func() { _ = engineCli.Close() }()
-
-			reader, err := engineCli.ImagePull(ctx, tag, image.PullOptions{})
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: failed to pull image %q: %v\n", tag, err)
-			} else {
-				defer func() { _ = reader.Close() }()
-
-				if err := displayStream(reader); err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: failed to read pull output for image %q: %v\n", tag, err)
-				} else {
-					return tag, nil
-				}
-			}
-		}
-
-	}
-
-	tmpDir, err := os.MkdirTemp("", "jailoc-embedded-dockerfile-")
-	if err != nil {
-		return "", fmt.Errorf("create temp directory for embedded Dockerfile: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
-	if err := os.WriteFile(dockerfilePath, embed.Dockerfile(), 0o600); err != nil {
-		return "", fmt.Errorf("write embedded Dockerfile to %q: %w", dockerfilePath, err)
-	}
-
-	entrypointPath := filepath.Join(tmpDir, "entrypoint.sh")
-	if err := os.WriteFile(entrypointPath, embed.Entrypoint(), 0o600); err != nil {
-		return "", fmt.Errorf("write embedded entrypoint.sh to %q: %w", entrypointPath, err)
+		return tag, nil
 	}
 
 	const embeddedTag = "jailoc-base:embedded"
 	engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
 	if err != nil {
-		return "", fmt.Errorf("create Docker Engine client: %w", err)
+		return "", fmt.Errorf("create Docker Engine client for embedded build: %w", err)
 	}
 	defer func() { _ = engineCli.Close() }()
 
-	buildCtx, err := archive.TarWithOptions(tmpDir, &archive.TarOptions{})
-	if err != nil {
-		return "", fmt.Errorf("create build context tar for %q: %w", tmpDir, err)
+	if err := buildEmbeddedImage(ctx, engineCli, embeddedTag); err != nil {
+		return "", fmt.Errorf("build embedded base image: %w", err)
 	}
-	defer func() { _ = buildCtx.Close() }()
-
-	resp, err := engineCli.ImageBuild(ctx, buildCtx, build.ImageBuildOptions{
-		Tags:   []string{embeddedTag},
-		Remove: true,
-	})
-	if err != nil {
-		return "", fmt.Errorf("build embedded base image in %q: %w", tmpDir, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if err := displayStream(resp.Body); err != nil {
-		return "", fmt.Errorf("read build output: %w", err)
-	}
-
-	_, _ = fmt.Fprintf(os.Stderr, "warning: using embedded Dockerfile fallback image %q\n", embeddedTag)
 
 	return embeddedTag, nil
 }
 
-func ResolvePresetImage(ctx context.Context, rawURL string) (string, error) {
-	fmt.Printf("Building preset base image from %s...\n", rawURL)
-
-	content, err := fetchDockerfile(ctx, rawURL)
+func pullImage(ctx context.Context, cli dockerclient.APIClient, tag string) error {
+	reader, err := cli.ImagePull(ctx, tag, image.PullOptions{})
 	if err != nil {
-		return "", fmt.Errorf("fetch preset dockerfile from %s: %w", rawURL, err)
+		return fmt.Errorf("pull image %q: %w", tag, err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	if err := displayStream(reader); err != nil {
+		return fmt.Errorf("read pull output for image %q: %w", tag, err)
 	}
 
-	engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
-	if err != nil {
-		return "", fmt.Errorf("create Docker Engine client for preset build: %w", err)
-	}
-	defer func() { _ = engineCli.Close() }()
+	return nil
+}
 
-	tag, err := buildPresetImage(ctx, engineCli, content)
+func buildEmbeddedImage(ctx context.Context, cli dockerclient.APIClient, tag string) error {
+	tmpDir, err := os.MkdirTemp("", "jailoc-embedded-dockerfile-")
 	if err != nil {
-		return "", fmt.Errorf("build preset image: %w", err)
+		return fmt.Errorf("create temp directory for embedded Dockerfile: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	if err := os.WriteFile(dockerfilePath, embed.Dockerfile(), 0o600); err != nil {
+		return fmt.Errorf("write embedded Dockerfile to %q: %w", dockerfilePath, err)
 	}
 
-	return tag, nil
+	entrypointPath := filepath.Join(tmpDir, "entrypoint.sh")
+	if err := os.WriteFile(entrypointPath, embed.Entrypoint(), 0o600); err != nil {
+		return fmt.Errorf("write embedded entrypoint.sh to %q: %w", entrypointPath, err)
+	}
+
+	buildCtx, err := archive.TarWithOptions(tmpDir, &archive.TarOptions{})
+	if err != nil {
+		return fmt.Errorf("create build context tar for %q: %w", tmpDir, err)
+	}
+	defer func() { _ = buildCtx.Close() }()
+
+	resp, err := cli.ImageBuild(ctx, buildCtx, build.ImageBuildOptions{
+		Tags:   []string{tag},
+		Remove: true,
+	})
+	if err != nil {
+		return fmt.Errorf("build embedded image in %q: %w", tmpDir, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if err := displayStream(resp.Body); err != nil {
+		return fmt.Errorf("read embedded build output: %w", err)
+	}
+
+	return nil
 }
 
 func buildPresetImage(ctx context.Context, cli dockerclient.APIClient, dockerfileContent []byte) (string, error) {
@@ -395,74 +347,94 @@ func buildPresetImage(ctx context.Context, cli dockerclient.APIClient, dockerfil
 	return presetTag, nil
 }
 
-func ApplyWorkspaceLayer(ctx context.Context, base, workspaceName string) (string, error) {
+func BuildOverlayImage(ctx context.Context, base string, ws workspace.Resolved) (string, error) {
 	if strings.TrimSpace(base) == "" {
 		return "", fmt.Errorf("base image is empty")
 	}
 
-	if strings.TrimSpace(workspaceName) == "" {
-		return "", fmt.Errorf("workspace name is empty")
-	}
-
-	workspaceDockerfile := workspaceDockerfilePath(workspaceName)
-	exists, err := fileExists(workspaceDockerfile)
-	if err != nil {
-		return "", fmt.Errorf("check workspace Dockerfile at %q: %w", workspaceDockerfile, err)
-	}
-
-	if !exists {
+	if strings.TrimSpace(ws.Dockerfile) == "" {
 		return base, nil
 	}
 
-	configDir := config.ConfigDir()
-	workspaceTag := fmt.Sprintf("jailoc-%s:latest", workspaceName)
+	dockerfileContent, err := loadDockerfile(ctx, ws.Dockerfile)
+	if err != nil {
+		return "", fmt.Errorf("load workspace dockerfile from %q: %w", ws.Dockerfile, err)
+	}
+
+	buildContextDir, cleanupCtx, err := resolveOverlayBuildContext(ws)
+	if err != nil {
+		return "", fmt.Errorf("determine build context for workspace %q: %w", ws.Name, err)
+	}
+	defer cleanupCtx()
+
+	tmpDockerfile, err := os.CreateTemp(buildContextDir, "jailoc-overlay-*.Dockerfile")
+	if err != nil {
+		return "", fmt.Errorf("write temporary workspace Dockerfile in %q: %w", buildContextDir, err)
+	}
+	tmpDockerfilePath := tmpDockerfile.Name()
+	defer func() { _ = os.Remove(tmpDockerfilePath) }()
+
+	if _, err := tmpDockerfile.Write(dockerfileContent); err != nil {
+		_ = tmpDockerfile.Close()
+		return "", fmt.Errorf("write temporary workspace Dockerfile %q: %w", tmpDockerfilePath, err)
+	}
+	if err := tmpDockerfile.Close(); err != nil {
+		return "", fmt.Errorf("close temporary workspace Dockerfile %q: %w", tmpDockerfilePath, err)
+	}
+
+	hash := sha256.Sum256(dockerfileContent)
+	hashHex := fmt.Sprintf("%x", hash)
+	overlayTag := fmt.Sprintf("jailoc-%s:%s", ws.Name, hashHex[:8])
 
 	engineCli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
 	if err != nil {
-		return "", fmt.Errorf("create Docker Engine client: %w", err)
+		return "", fmt.Errorf("create Docker Engine client for workspace %q overlay build: %w", ws.Name, err)
 	}
 	defer func() { _ = engineCli.Close() }()
 
-	buildCtx, err := archive.TarWithOptions(configDir, &archive.TarOptions{})
+	buildCtx, err := archive.TarWithOptions(buildContextDir, &archive.TarOptions{})
 	if err != nil {
-		return "", fmt.Errorf("create build context tar for %q: %w", configDir, err)
+		return "", fmt.Errorf("create build context tar for workspace %q from %q: %w", ws.Name, buildContextDir, err)
 	}
 	defer func() { _ = buildCtx.Close() }()
 
+	baseArg := base
 	resp, err := engineCli.ImageBuild(ctx, buildCtx, build.ImageBuildOptions{
-		Tags:       []string{workspaceTag},
-		BuildArgs:  map[string]*string{"BASE": &base},
-		Dockerfile: workspaceName + ".Dockerfile",
+		Tags:       []string{overlayTag},
+		BuildArgs:  map[string]*string{"BASE": &baseArg},
+		Dockerfile: filepath.Base(tmpDockerfilePath),
 		Remove:     true,
 	})
 	if err != nil {
-		return "", fmt.Errorf("build workspace image %q from %q: %w", workspaceTag, configDir, err)
+		return "", fmt.Errorf("build workspace overlay image %q from %q: %w", overlayTag, buildContextDir, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if err := displayStream(resp.Body); err != nil {
-		return "", fmt.Errorf("read build output: %w", err)
+		return "", fmt.Errorf("read workspace overlay build output for %q: %w", ws.Name, err)
 	}
 
-	return workspaceTag, nil
+	return overlayTag, nil
 }
 
-func fileExists(path string) (bool, error) {
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-
-		return false, fmt.Errorf("stat file %q: %w", path, err)
+func resolveOverlayBuildContext(ws workspace.Resolved) (dir string, cleanup func(), err error) {
+	if strings.TrimSpace(ws.BuildContext) != "" {
+		return ws.BuildContext, func() {}, nil
 	}
 
-	return true, nil
-}
+	sourceKind, err := detectSourceType(ws.Dockerfile)
+	if err != nil {
+		return "", func() {}, fmt.Errorf("detect dockerfile source type: %w", err)
+	}
 
-func baseDockerfileOverridePath() string {
-	return config.BaseDockerfileOverridePath()
-}
+	if sourceKind == sourceLocal {
+		return filepath.Dir(ws.Dockerfile), func() {}, nil
+	}
 
-func workspaceDockerfilePath(workspace string) string {
-	return config.WorkspaceDockerfilePath(workspace)
+	tmpDir, err := os.MkdirTemp("", "jailoc-overlay-context-")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create temporary build context for HTTP dockerfile: %w", err)
+	}
+
+	return tmpDir, func() { _ = os.RemoveAll(tmpDir) }, nil
 }
