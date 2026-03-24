@@ -24,15 +24,26 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Print image info
-	_, _ = fmt.Fprintf(os.Stdout, "Image: %s:%s\n\n", cfg.Image.Repository, appVersion)
-
 	// Sort workspace names alphabetically
 	names := make([]string, 0, len(cfg.Workspaces))
 	for name := range cfg.Workspaces {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+
+	// Print global settings
+	baseDockerfile := cfg.Base.Dockerfile
+	if baseDockerfile == "" {
+		baseDockerfile = "(embedded)"
+	}
+	_, _ = fmt.Fprintf(os.Stdout, "Base Dockerfile: %s\n", baseDockerfile)
+
+	defaultsImage := cfg.Defaults.Image
+	if defaultsImage == "" {
+		defaultsImage = "(not set)"
+	}
+	_, _ = fmt.Fprintf(os.Stdout, "Defaults Image: %s\n", defaultsImage)
+	_, _ = fmt.Fprintf(os.Stdout, "\n")
 
 	// Print each workspace
 	for _, name := range names {
@@ -72,6 +83,12 @@ func runConfig(cmd *cobra.Command, args []string) error {
 			buildContext = "(none)"
 		}
 		_, _ = fmt.Fprintf(os.Stdout, "  Build Context: %s\n", buildContext)
+
+		wsImage := ws.Image
+		if wsImage == "" {
+			wsImage = "(not set)"
+		}
+		_, _ = fmt.Fprintf(os.Stdout, "  Image: %s\n", wsImage)
 
 		_, _ = fmt.Fprintf(os.Stdout, "\n")
 	}

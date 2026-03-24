@@ -15,18 +15,17 @@ import (
 )
 
 const (
-	defaultImageRepository = "ghcr.io/seznam/jailoc"
-	defaultConfigContent   = `# jailoc configuration
+	defaultConfigContent = `# jailoc configuration
 # See: https://github.com/seznam/jailoc
 
 # Access mode: "remote" (host opencode attach), "exec" (docker exec opencode), or "" (auto-detect)
 # mode = ""
 
-[image]
-# repository = "ghcr.io/seznam/jailoc"  # default registry
+[base]
 # dockerfile = ""
 
 [defaults]
+# image = ""
 # env = ["KEY=VALUE"]
 # env_file = ["/path/to/.env"]
 # allowed_hosts = ["example.com"]
@@ -34,6 +33,7 @@ const (
 
 [workspaces.default]
 paths = []
+# image = ""
 # allowed_hosts = []
 # allowed_networks = []
 # env = ["KEY=VALUE"]
@@ -80,13 +80,12 @@ var forbiddenMountPrefixes = []string{
 
 type Config struct {
 	Mode       string               `toml:"mode"`
-	Image      ImageConfig          `toml:"image"`
+	Base       BaseConfig           `toml:"base"`
 	Defaults   Defaults             `toml:"defaults"`
 	Workspaces map[string]Workspace `toml:"workspaces"`
 }
 
-type ImageConfig struct {
-	Repository string `toml:"repository"`
+type BaseConfig struct {
 	Dockerfile string `toml:"dockerfile"`
 }
 
@@ -95,6 +94,7 @@ type Defaults struct {
 	EnvFile         []string `toml:"env_file"`
 	AllowedHosts    []string `toml:"allowed_hosts"`
 	AllowedNetworks []string `toml:"allowed_networks"`
+	Image           string   `toml:"image"`
 }
 
 type Workspace struct {
@@ -105,6 +105,7 @@ type Workspace struct {
 	EnvFile         []string `toml:"env_file"`
 	BuildContext    string   `toml:"build_context"`
 	Dockerfile      string   `toml:"dockerfile"`
+	Image           string   `toml:"image"`
 }
 
 func ConfigDir() string {
@@ -170,9 +171,6 @@ func decode(path string) (*Config, error) {
 		return nil, fmt.Errorf("parse TOML %q: %w", path, err)
 	}
 
-	if cfg.Image.Repository == "" {
-		cfg.Image.Repository = defaultImageRepository
-	}
 	if cfg.Workspaces == nil {
 		cfg.Workspaces = map[string]Workspace{}
 	}
@@ -266,24 +264,20 @@ func Validate(cfg *Config) error {
 		cfg.Workspaces = map[string]Workspace{}
 	}
 
-	if cfg.Image.Repository == "" {
-		cfg.Image.Repository = defaultImageRepository
-	}
-
 	if cfg.Mode != "" && cfg.Mode != ModeRemote && cfg.Mode != ModeExec {
 		return fmt.Errorf("invalid mode %q: must be %q, %q, or empty (auto-detect)", cfg.Mode, ModeRemote, ModeExec)
 	}
 
-	if err := validateDockerfileSource(cfg.Image.Dockerfile, "image dockerfile"); err != nil {
+	if err := validateDockerfileSource(cfg.Base.Dockerfile, "base dockerfile"); err != nil {
 		return err
 	}
 
-	if strings.HasPrefix(cfg.Image.Dockerfile, "~") {
-		expanded, err := ExpandPath(cfg.Image.Dockerfile)
+	if strings.HasPrefix(cfg.Base.Dockerfile, "~") {
+		expanded, err := ExpandPath(cfg.Base.Dockerfile)
 		if err != nil {
-			return fmt.Errorf("expand image dockerfile %q: %w", cfg.Image.Dockerfile, err)
+			return fmt.Errorf("expand base dockerfile %q: %w", cfg.Base.Dockerfile, err)
 		}
-		cfg.Image.Dockerfile = expanded
+		cfg.Base.Dockerfile = expanded
 	}
 
 	if err := validateEnvEntries(cfg.Defaults.Env, "defaults"); err != nil {
@@ -346,6 +340,16 @@ func Validate(cfg *Config) error {
 
 		if err := validateDockerfileSource(ws.Dockerfile, fmt.Sprintf("workspace %q dockerfile", name)); err != nil {
 			return err
+		}
+
+		if ws.Image != "" && ws.Dockerfile != "" {
+			return fmt.Errorf("workspace %q: cannot set both \"image\" and \"dockerfile\"", name)
+		}
+		if ws.Image != "" && ws.BuildContext != "" {
+			return fmt.Errorf("workspace %q: cannot set both \"image\" and \"build_context\"", name)
+		}
+		if strings.TrimSpace(ws.Image) == "" && ws.Image != "" {
+			return fmt.Errorf("workspace %q: \"image\" must not be empty", name)
 		}
 
 		wsContext := fmt.Sprintf("workspace %q", name)

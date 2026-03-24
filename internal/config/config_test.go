@@ -27,8 +27,7 @@ func TestLoadFullConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 	writeFile(t, path, `
-[image]
-repository = "ghcr.io/seznam/jailoc-custom"
+[base]
 
 [workspaces.default]
 paths = ["/data/workspace"]
@@ -42,8 +41,8 @@ build_context = "/tmp/context"
 		t.Fatalf("LoadFrom failed: %v", err)
 	}
 
-	if cfg.Image.Repository != "ghcr.io/seznam/jailoc-custom" {
-		t.Fatalf("unexpected image repository: %q", cfg.Image.Repository)
+	if cfg.Base.Dockerfile != "" {
+		t.Fatalf("unexpected base dockerfile: %q", cfg.Base.Dockerfile)
 	}
 
 	ws := cfg.Workspaces["default"]
@@ -74,8 +73,8 @@ paths = ["/data/workspace"]
 		t.Fatalf("LoadFrom failed: %v", err)
 	}
 
-	if cfg.Image.Repository != defaultImageRepository {
-		t.Fatalf("expected default image repository %q, got %q", defaultImageRepository, cfg.Image.Repository)
+	if cfg.Base.Dockerfile != "" {
+		t.Fatalf("expected empty base dockerfile, got %q", cfg.Base.Dockerfile)
 	}
 
 	ws := cfg.Workspaces["default"]
@@ -103,21 +102,21 @@ func TestRoundTrip(t *testing.T) {
 	path := filepath.Join(dir, "config.toml")
 	writeFile(t, path, fmt.Sprintf(`
 [defaults]
+image = "ubuntu:22.04"
 env = ["GLOBAL_VAR=value1"]
 env_file = [%q]
 allowed_hosts = ["global.example.com"]
 allowed_networks = ["10.0.0.0/8"]
 
-[image]
-repository = "ghcr.io/seznam/jailoc"
+[base]
 
 [workspaces.default]
+image = "alpine:latest"
 paths = ["/data/workspace", "/work2"]
 allowed_hosts = ["foo.com"]
 allowed_networks = ["10.0.0.0/8"]
 env = ["LOCAL_VAR=value2"]
 env_file = [%q]
-build_context = "/tmp/context"
 `, envGlobal, envLocal))
 
 	first, err := LoadFrom(path)
@@ -140,6 +139,22 @@ build_context = "/tmp/context"
 
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("round-trip mismatch:\nfirst=%#v\nsecond=%#v", first, second)
+	}
+
+	if first.Defaults.Image != "ubuntu:22.04" {
+		t.Fatalf("expected defaults.image to be 'ubuntu:22.04', got %q", first.Defaults.Image)
+	}
+	if second.Defaults.Image != "ubuntu:22.04" {
+		t.Fatalf("expected second.defaults.image to be 'ubuntu:22.04', got %q", second.Defaults.Image)
+	}
+
+	ws := first.Workspaces["default"]
+	if ws.Image != "alpine:latest" {
+		t.Fatalf("expected workspace.image to be 'alpine:latest', got %q", ws.Image)
+	}
+	ws2 := second.Workspaces["default"]
+	if ws2.Image != "alpine:latest" {
+		t.Fatalf("expected second.workspace.image to be 'alpine:latest', got %q", ws2.Image)
 	}
 }
 
@@ -781,7 +796,7 @@ func TestWriteAllowedFilesMissingWorkspace(t *testing.T) {
 func TestValidateAcceptsDockerfileHTTP(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "http://example.com/Dockerfile",
 		},
 		Workspaces: map[string]Workspace{
@@ -800,7 +815,7 @@ func TestValidateAcceptsDockerfileHTTP(t *testing.T) {
 func TestValidateAcceptsDockerfileHTTPS(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "https://example.com/Dockerfile",
 		},
 		Workspaces: map[string]Workspace{
@@ -819,7 +834,7 @@ func TestValidateAcceptsDockerfileHTTPS(t *testing.T) {
 func TestValidateAcceptsDockerfileEmpty(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "",
 		},
 		Workspaces: map[string]Workspace{
@@ -857,7 +872,7 @@ func TestValidateRejectsDockerfileEmptyHost(t *testing.T) {
 			var cfg *Config
 			if tt.name == "global image" {
 				cfg = &Config{
-					Image: ImageConfig{
+					Base: BaseConfig{
 						Dockerfile: tt.image,
 					},
 					Workspaces: map[string]Workspace{
@@ -891,7 +906,7 @@ func TestValidateRejectsDockerfileEmptyHost(t *testing.T) {
 func TestValidateRejectsDockerfileFTPScheme(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "ftp://example.com/Dockerfile",
 		},
 	}
@@ -924,7 +939,7 @@ func TestValidateRejectsDockerfileFTPScheme(t *testing.T) {
 func TestValidateAcceptsDockerfileLocalAbsolute(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "/opt/custom/Dockerfile",
 		},
 		Workspaces: map[string]Workspace{
@@ -942,7 +957,7 @@ func TestValidateAcceptsDockerfileLocalAbsolute(t *testing.T) {
 func TestValidateAcceptsDockerfileTildePath(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "~/my.Dockerfile",
 		},
 		Workspaces: map[string]Workspace{
@@ -976,7 +991,7 @@ func TestValidateAcceptsWorkspaceDockerfileLocal(t *testing.T) {
 func TestValidateRejectsDockerfileRelativePath(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "relative/path",
 		},
 		Workspaces: map[string]Workspace{
@@ -998,7 +1013,7 @@ func TestValidateRejectsDockerfileRelativePath(t *testing.T) {
 func TestValidateRejectsDockerfileBareName(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "justAName",
 		},
 		Workspaces: map[string]Workspace{
@@ -1105,7 +1120,7 @@ func TestImageDockerfileLocalPathExpandsTilde(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	cfg := &Config{
-		Image: ImageConfig{
+		Base: BaseConfig{
 			Dockerfile: "~/my.Dockerfile",
 		},
 		Workspaces: map[string]Workspace{
@@ -1121,8 +1136,8 @@ func TestImageDockerfileLocalPathExpandsTilde(t *testing.T) {
 	}
 
 	expected := home + "/my.Dockerfile"
-	if cfg.Image.Dockerfile != expected {
-		t.Fatalf("expected %q, got: %q", expected, cfg.Image.Dockerfile)
+	if cfg.Base.Dockerfile != expected {
+		t.Fatalf("expected %q, got: %q", expected, cfg.Base.Dockerfile)
 	}
 }
 
@@ -1174,12 +1189,7 @@ func TestAllowedHostsMerge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &Config{
-				Defaults: struct {
-					Env             []string `toml:"env"`
-					EnvFile         []string `toml:"env_file"`
-					AllowedHosts    []string `toml:"allowed_hosts"`
-					AllowedNetworks []string `toml:"allowed_networks"`
-				}{
+				Defaults: Defaults{
 					AllowedHosts: tt.defaults,
 				},
 				Workspaces: map[string]Workspace{
@@ -1243,12 +1253,7 @@ func TestAllowedNetworksMerge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &Config{
-				Defaults: struct {
-					Env             []string `toml:"env"`
-					EnvFile         []string `toml:"env_file"`
-					AllowedHosts    []string `toml:"allowed_hosts"`
-					AllowedNetworks []string `toml:"allowed_networks"`
-				}{
+				Defaults: Defaults{
 					AllowedNetworks: tt.defaults,
 				},
 				Workspaces: map[string]Workspace{
@@ -1556,4 +1561,212 @@ func TestExpandPathsTildeEnvFile(t *testing.T) {
 			t.Fatalf("expected expanded path, got %q", ws.EnvFile[0])
 		}
 	})
+}
+
+func TestValidateImageAndDockerfileMutualExclusivity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		image       string
+		dockerfile  string
+		buildCtx    string
+		shouldError bool
+		errorText   string
+	}{
+		{
+			name:        "image + dockerfile conflict",
+			image:       "nginx:latest",
+			dockerfile:  "/Dockerfile",
+			buildCtx:    "",
+			shouldError: true,
+			errorText:   "cannot set both \"image\" and \"dockerfile\"",
+		},
+		{
+			name:        "image + build_context conflict",
+			image:       "nginx:latest",
+			dockerfile:  "",
+			buildCtx:    "/build",
+			shouldError: true,
+			errorText:   "cannot set both \"image\" and \"build_context\"",
+		},
+		{
+			name:        "image only is valid",
+			image:       "nginx:latest",
+			dockerfile:  "",
+			buildCtx:    "",
+			shouldError: false,
+			errorText:   "",
+		},
+		{
+			name:        "dockerfile only is valid",
+			image:       "",
+			dockerfile:  "/Dockerfile",
+			buildCtx:    "",
+			shouldError: false,
+			errorText:   "",
+		},
+		{
+			name:        "build_context only is valid",
+			image:       "",
+			dockerfile:  "",
+			buildCtx:    "/build",
+			shouldError: false,
+			errorText:   "",
+		},
+		{
+			name:        "all three set triggers dockerfile+image error first",
+			image:       "nginx:latest",
+			dockerfile:  "/Dockerfile",
+			buildCtx:    "/build",
+			shouldError: true,
+			errorText:   "cannot set both \"image\" and \"dockerfile\"",
+		},
+		{
+			name:        "dockerfile + build_context is valid",
+			image:       "",
+			dockerfile:  "/Dockerfile",
+			buildCtx:    "/build",
+			shouldError: false,
+			errorText:   "",
+		},
+		{
+			name:        "image_whitespace_only",
+			image:       "   ",
+			dockerfile:  "",
+			buildCtx:    "",
+			shouldError: true,
+			errorText:   "\"image\" must not be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Config{
+				Workspaces: map[string]Workspace{
+					"test": {
+						Paths:        []string{"/data"},
+						Image:        tt.image,
+						Dockerfile:   tt.dockerfile,
+						BuildContext: tt.buildCtx,
+					},
+				},
+			}
+
+			err := Validate(cfg)
+
+			if tt.shouldError {
+				if err == nil {
+					t.Fatal("expected validation error")
+				}
+				if !strings.Contains(err.Error(), tt.errorText) {
+					t.Fatalf("expected error to contain %q, got: %v", tt.errorText, err)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadImageFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		tomlContent    string
+		checkDefaults  func(*testing.T, *Config)
+		checkWorkspace func(*testing.T, *Config)
+	}{
+		{
+			name: "defaults.image loads correctly",
+			tomlContent: `
+[defaults]
+image = "ubuntu:22.04"
+
+[base]
+
+[workspaces.test]
+paths = ["/data"]
+`,
+			checkDefaults: func(t *testing.T, cfg *Config) {
+				if cfg.Defaults.Image != "ubuntu:22.04" {
+					t.Fatalf("expected defaults.image = 'ubuntu:22.04', got %q", cfg.Defaults.Image)
+				}
+			},
+			checkWorkspace: func(t *testing.T, cfg *Config) {
+				ws := cfg.Workspaces["test"]
+				if ws.Image != "" {
+					t.Fatalf("expected workspace.image to be empty, got %q", ws.Image)
+				}
+			},
+		},
+		{
+			name: "workspace.image loads correctly",
+			tomlContent: `
+[defaults]
+
+[base]
+
+[workspaces.test]
+paths = ["/data"]
+image = "alpine:latest"
+`,
+			checkDefaults: func(t *testing.T, cfg *Config) {
+				if cfg.Defaults.Image != "" {
+					t.Fatalf("expected defaults.image to be empty, got %q", cfg.Defaults.Image)
+				}
+			},
+			checkWorkspace: func(t *testing.T, cfg *Config) {
+				ws := cfg.Workspaces["test"]
+				if ws.Image != "alpine:latest" {
+					t.Fatalf("expected workspace.image = 'alpine:latest', got %q", ws.Image)
+				}
+			},
+		},
+		{
+			name: "defaults and workspace images are independent",
+			tomlContent: `
+[defaults]
+image = "ubuntu:22.04"
+
+[base]
+
+[workspaces.test]
+paths = ["/data"]
+image = "alpine:latest"
+`,
+			checkDefaults: func(t *testing.T, cfg *Config) {
+				if cfg.Defaults.Image != "ubuntu:22.04" {
+					t.Fatalf("expected defaults.image = 'ubuntu:22.04', got %q", cfg.Defaults.Image)
+				}
+			},
+			checkWorkspace: func(t *testing.T, cfg *Config) {
+				ws := cfg.Workspaces["test"]
+				if ws.Image != "alpine:latest" {
+					t.Fatalf("expected workspace.image = 'alpine:latest', got %q", ws.Image)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.toml")
+			writeFile(t, path, tt.tomlContent)
+
+			cfg, err := LoadFrom(path)
+			if err != nil {
+				t.Fatalf("LoadFrom failed: %v", err)
+			}
+
+			tt.checkDefaults(t, cfg)
+			tt.checkWorkspace(t, cfg)
+		})
+	}
 }
