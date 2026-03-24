@@ -22,6 +22,7 @@ type Resolved struct {
 	AllowedNetworks []string
 	BuildContext    string
 	Dockerfile      string
+	Env             []string
 }
 
 func Resolve(cfg *config.Config, name string) (*Resolved, error) {
@@ -60,6 +61,28 @@ func Resolve(cfg *config.Config, name string) (*Resolved, error) {
 		buildContext = abs
 	}
 
+	mergedEnv := make([]string, 0, len(cfg.Defaults.Env)+len(ws.Env))
+	mergedEnv = append(mergedEnv, cfg.Defaults.Env...)
+
+	allEnvFiles := make([]string, 0, len(cfg.Defaults.EnvFile)+len(ws.EnvFile))
+	seenFiles := make(map[string]bool, len(cfg.Defaults.EnvFile)+len(ws.EnvFile))
+	for _, f := range append(cfg.Defaults.EnvFile, ws.EnvFile...) {
+		if !seenFiles[f] {
+			seenFiles[f] = true
+			allEnvFiles = append(allEnvFiles, f)
+		}
+	}
+	for _, envFile := range allEnvFiles {
+		entries, err := config.ParseEnvFile(envFile)
+		if err != nil {
+			return nil, fmt.Errorf("resolving env for workspace %s: %w", name, err)
+		}
+		mergedEnv = append(mergedEnv, entries...)
+	}
+
+	mergedEnv = append(mergedEnv, ws.Env...)
+	mergedEnv = dedupEnvByKeyLastWins(mergedEnv)
+
 	return &Resolved{
 		Name:            name,
 		Paths:           paths,
@@ -68,7 +91,34 @@ func Resolve(cfg *config.Config, name string) (*Resolved, error) {
 		AllowedNetworks: ws.AllowedNetworks,
 		BuildContext:    buildContext,
 		Dockerfile:      ws.Dockerfile,
+		Env:             mergedEnv,
 	}, nil
+}
+
+func dedupEnvByKeyLastWins(entries []string) []string {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	orderedKeys := make([]string, 0, len(entries))
+	seenKeys := make(map[string]bool, len(entries))
+	latestByKey := make(map[string]string, len(entries))
+
+	for _, entry := range entries {
+		key, _, _ := strings.Cut(entry, "=")
+		if !seenKeys[key] {
+			orderedKeys = append(orderedKeys, key)
+			seenKeys[key] = true
+		}
+		latestByKey[key] = entry
+	}
+
+	result := make([]string, 0, len(orderedKeys))
+	for _, key := range orderedKeys {
+		result = append(result, latestByKey[key])
+	}
+
+	return result
 }
 
 func ResolveFromCWD(cfg *config.Config, cwd string) (*Resolved, string, error) {

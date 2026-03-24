@@ -26,10 +26,18 @@ const (
 # repository = "ghcr.io/seznam/jailoc"  # default registry
 # dockerfile = ""
 
+[defaults]
+# env = ["KEY=VALUE"]
+# env_file = ["/path/to/.env"]
+# allowed_hosts = ["example.com"]
+# allowed_networks = ["10.0.0.0/8"]
+
 [workspaces.default]
 paths = []
 # allowed_hosts = []
 # allowed_networks = []
+# env = ["KEY=VALUE"]
+# env_file = ["/path/to/.env"]
 # build_context = ""
 # dockerfile = ""
 `
@@ -41,6 +49,15 @@ const (
 )
 
 var workspaceNameRe = regexp.MustCompile(`^[a-z0-9-]+$`)
+
+var reservedEnvKeys = map[string]bool{
+	"OPENCODE_LOG":             true,
+	"OPENCODE_SERVER_PASSWORD": true,
+	"DOCKER_HOST":              true,
+	"DOCKER_TLS_CERTDIR":       true,
+	"DOCKER_CERT_PATH":         true,
+	"DOCKER_TLS_VERIFY":        true,
+}
 
 var forbiddenMountPrefixes = []string{
 	"/home/agent",
@@ -64,6 +81,7 @@ var forbiddenMountPrefixes = []string{
 type Config struct {
 	Mode       string               `toml:"mode"`
 	Image      ImageConfig          `toml:"image"`
+	Defaults   Defaults             `toml:"defaults"`
 	Workspaces map[string]Workspace `toml:"workspaces"`
 }
 
@@ -72,10 +90,19 @@ type ImageConfig struct {
 	Dockerfile string `toml:"dockerfile"`
 }
 
+type Defaults struct {
+	Env             []string `toml:"env"`
+	EnvFile         []string `toml:"env_file"`
+	AllowedHosts    []string `toml:"allowed_hosts"`
+	AllowedNetworks []string `toml:"allowed_networks"`
+}
+
 type Workspace struct {
 	Paths           []string `toml:"paths"`
 	AllowedHosts    []string `toml:"allowed_hosts"`
 	AllowedNetworks []string `toml:"allowed_networks"`
+	Env             []string `toml:"env"`
+	EnvFile         []string `toml:"env_file"`
 	BuildContext    string   `toml:"build_context"`
 	Dockerfile      string   `toml:"dockerfile"`
 }
@@ -202,6 +229,34 @@ func validateDockerfileSource(value, fieldName string) error {
 	return fmt.Errorf("%s: must be an absolute path (/..., ~/...) or HTTP(S) URL, got %q", fieldName, value)
 }
 
+func validateEnvEntries(entries []string, context string) error {
+	for _, entry := range entries {
+		key, _, hasEq := strings.Cut(entry, "=")
+		if !hasEq {
+			return fmt.Errorf("%s: invalid env entry %q: must be in KEY=VALUE format", context, entry)
+		}
+		if key == "" {
+			return fmt.Errorf("%s: invalid env entry %q: key must not be empty", context, entry)
+		}
+		if reservedEnvKeys[key] {
+			return fmt.Errorf("%s: env key %q is reserved and cannot be overridden", context, key)
+		}
+	}
+	return nil
+}
+
+func validateEnvFiles(paths []string, context string) error {
+	for _, p := range paths {
+		if !strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "~") {
+			return fmt.Errorf("%s: env_file path %q must be absolute (start with / or ~)", context, p)
+		}
+		if _, err := os.Stat(p); err != nil {
+			return fmt.Errorf("%s: env_file %q does not exist", context, p)
+		}
+	}
+	return nil
+}
+
 func Validate(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
@@ -229,6 +284,22 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("expand image dockerfile %q: %w", cfg.Image.Dockerfile, err)
 		}
 		cfg.Image.Dockerfile = expanded
+	}
+
+	if err := validateEnvEntries(cfg.Defaults.Env, "defaults"); err != nil {
+		return err
+	}
+
+	for i, p := range cfg.Defaults.EnvFile {
+		expanded, err := ExpandPath(p)
+		if err != nil {
+			return fmt.Errorf("defaults: expand env_file path %q: %w", p, err)
+		}
+		cfg.Defaults.EnvFile[i] = expanded
+	}
+
+	if err := validateEnvFiles(cfg.Defaults.EnvFile, "defaults"); err != nil {
+		return err
 	}
 
 	names := make([]string, 0, len(cfg.Workspaces))
@@ -274,6 +345,14 @@ func Validate(cfg *Config) error {
 		}
 
 		if err := validateDockerfileSource(ws.Dockerfile, fmt.Sprintf("workspace %q dockerfile", name)); err != nil {
+			return err
+		}
+
+		wsContext := fmt.Sprintf("workspace %q", name)
+		if err := validateEnvEntries(ws.Env, wsContext); err != nil {
+			return err
+		}
+		if err := validateEnvFiles(ws.EnvFile, wsContext); err != nil {
 			return err
 		}
 
@@ -329,17 +408,83 @@ func AddPath(workspace, path string) error {
 	return nil
 }
 
+func WriteAllowedFiles(workspace string, cfg *Config) error {
+	dir := ConfigDir()
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return fmt.Errorf("create config directory %q: %w", dir, err)
+	}
+
+	hostsPath := filepath.Join(dir, "allowed-hosts")
+	if content := AllowedHostsFileContent(workspace, cfg); content != "" {
+		if err := os.WriteFile(hostsPath, []byte(content), 0o600); err != nil {
+			return fmt.Errorf("write allowed-hosts file: %w", err)
+		}
+	} else {
+		if err := os.Remove(hostsPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove stale allowed-hosts file: %w", err)
+		}
+	}
+
+	networksPath := filepath.Join(dir, "allowed-networks")
+	if content := AllowedNetworksFileContent(workspace, cfg); content != "" {
+		if err := os.WriteFile(networksPath, []byte(content), 0o600); err != nil {
+			return fmt.Errorf("write allowed-networks file: %w", err)
+		}
+	} else {
+		if err := os.Remove(networksPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove stale allowed-networks file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// mergeDedup combines two string slices into one, removing duplicates.
+// Order is preserved: items from `a` appear first, followed by items from `b` that weren't in `a`.
+func mergeDedup(a, b []string) []string {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(a)+len(b))
+
+	for _, item := range a {
+		if !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+
+	for _, item := range b {
+		if !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+
+	return result
+}
+
 func AllowedHostsFileContent(workspace string, cfg *Config) string {
 	if cfg == nil {
 		return ""
 	}
 
 	ws, ok := cfg.Workspaces[workspace]
-	if !ok || len(ws.AllowedHosts) == 0 {
+	if !ok {
 		return ""
 	}
 
-	return strings.Join(ws.AllowedHosts, "\n") + "\n"
+	merged := mergeDedup(cfg.Defaults.AllowedHosts, ws.AllowedHosts)
+	if len(merged) == 0 {
+		return ""
+	}
+
+	return strings.Join(merged, "\n") + "\n"
 }
 
 func AllowedNetworksFileContent(workspace string, cfg *Config) string {
@@ -348,11 +493,16 @@ func AllowedNetworksFileContent(workspace string, cfg *Config) string {
 	}
 
 	ws, ok := cfg.Workspaces[workspace]
-	if !ok || len(ws.AllowedNetworks) == 0 {
+	if !ok {
 		return ""
 	}
 
-	return strings.Join(ws.AllowedNetworks, "\n") + "\n"
+	merged := mergeDedup(cfg.Defaults.AllowedNetworks, ws.AllowedNetworks)
+	if len(merged) == 0 {
+		return ""
+	}
+
+	return strings.Join(merged, "\n") + "\n"
 }
 
 func ExpandPath(path string) (string, error) {
@@ -391,6 +541,14 @@ func expandPaths(ws *Workspace) error {
 			return fmt.Errorf("expand dockerfile path %q: %w", ws.Dockerfile, err)
 		}
 		ws.Dockerfile = expanded
+	}
+
+	for i, p := range ws.EnvFile {
+		expanded, err := ExpandPath(p)
+		if err != nil {
+			return fmt.Errorf("expand env_file path %q: %w", p, err)
+		}
+		ws.EnvFile[i] = expanded
 	}
 
 	return nil

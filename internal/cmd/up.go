@@ -63,6 +63,10 @@ func runUp(ctx context.Context) error {
 		return fmt.Errorf("create compose cache directory %q: %w", cacheDir, err)
 	}
 
+	if err := config.WriteAllowedFiles(ws.Name, cfg); err != nil {
+		return fmt.Errorf("write allowed files for workspace %q: %w", ws.Name, err)
+	}
+
 	params := compose.ComposeParams{
 		WorkspaceName:    ws.Name,
 		Port:             ws.Port,
@@ -71,6 +75,7 @@ func runUp(ctx context.Context) error {
 		AllowedHosts:     ws.AllowedHosts,
 		AllowedNetworks:  ws.AllowedNetworks,
 		OpenCodePassword: os.Getenv("OPENCODE_SERVER_PASSWORD"),
+		Env:              ws.Env,
 	}
 
 	if err := compose.WriteComposeFile(params, composePath); err != nil {
