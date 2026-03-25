@@ -1,4 +1,4 @@
-site_name: jailOC
+site_name: jailoc
 site_description: Sandboxed Docker Compose environments for headless OpenCode coding agents
 site_dir: public
 repo_url: https://github.com/seznam/jailoc
@@ -8,21 +8,29 @@ theme:
   name: material
   language: en
   palette:
-    - scheme: slate
-      primary: deep orange
-      accent: red
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: amber
+      accent: orange
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-    - scheme: default
-      primary: deep orange
-      accent: red
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: amber
+      accent: orange
       toggle:
         icon: material/brightness-7
-        name: Switch to dark mode
+        name: Switch to automatic mode
   font:
     text: Inter
     code: JetBrains Mono
+  logo: logo.png
+  favicon: favicon-light.png
   features:
     - content.code.copy
     - navigation.sections
@@ -43,8 +51,13 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
 
+copyright: Made with ❤️ in <a href="https://o-seznam.cz/kariera/it/">Seznam.cz</a>
+
 extra:
   version: !ENV [CI_COMMIT_TAG, "latest"]
+
+extra_javascript:
+  - javascripts/favicon-switch.js
 
 extra_css:
   - stylesheets/extra.css
@@ -66,6 +79,7 @@ nav:
     - Overlay Compatibility: reference/overlay-compatibility.md
   - Explanation:
     - Overview: explanation/overview.md
+    - Threat Model: explanation/threat-model.md
     - Container Architecture: explanation/container-architecture.md
     - Network Isolation: explanation/network-isolation.md
     - Access Modes: explanation/access-modes.md

@@ -2,46 +2,35 @@
 
 # jailoc
 
-`jailoc` manages sandboxed Docker Compose environments for headless OpenCode coding agents. Each workspace gets its own isolated container with network restrictions and privilege dropping, so agents run autonomously without touching your host system.
+`jailoc` wraps OpenCode agents in isolated Docker containers so they can run autonomously without touching your host system. Each workspace gets its own sandboxed environment with network restrictions and privilege dropping, letting you control exactly which directories and internal services the agent can reach.
 
-## How it works
+## Why jailoc
 
-```mermaid
-flowchart TB
-    subgraph host["Host"]
-        cli["jailoc CLI"]
+AI coding agents are powerful — and dangerous when unsandboxed. An agent running directly on your host inherits your user account: every file, every credential, every network endpoint you can reach. A single [prompt injection](explanation/threat-model.md) hidden in a GitHub issue, a web page, or a package README can instruct the agent to read sensitive data and send it somewhere it shouldn't go. This is the [lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/): private data access + untrusted content + external communication = data theft.
 
-        subgraph compose["Docker Compose · jailoc-workspace"]
-            subgraph oc["opencode container"]
-                ocd["opencode serve :4096 · UID 1000<br><small>workspace paths (rw) · OC config (ro)</small>"]
-            end
-            subgraph dind["dind container (privileged)"]
-                dd["Docker daemon :2376<br><small>TLS certs · docker data</small>"]
-            end
-        end
-    end
+jailoc cannot break the trifecta entirely — the agent still processes untrusted content from the public internet, because that's its job. What jailoc does is **shrink the blast radius** by tightening the other two legs:
 
-    cli --> compose
-    oc <-.->|"TLS (named volume)"| dind
-```
+**Your files stay out of reach.** The agent only sees directories you explicitly mount as workspaces. Your SSH keys, browser profiles, other projects, and anything else on the host filesystem are invisible inside the container. The agent runs as an unprivileged user (UID 1000) with all Linux capabilities dropped and `no_new_privs` set.
 
-**Entrypoint** — the container starts as root, applies iptables rules, and chowns the data volume. It then drops to UID 1000 (`agent`) via `setpriv --inh-caps=-all --no-new-privs` and starts the OpenCode server.
+**Your internal network is walled off.** Agents fetch packages and call APIs over the public internet, but without isolation they can also reach your Kubernetes clusters, databases, and cloud metadata endpoints. jailoc blocks all private networks (RFC 1918, link-local, CGNAT) by default via iptables — you allowlist only what the agent actually needs. A compromised agent cannot pivot to internal infrastructure.
 
-**Volume mounts** — workspace paths are bind-mounted at the same absolute path as on the host. OpenCode config directories (`~/.config/opencode`, `~/.opencode`, `~/.claude`, `~/.agents`) are mounted read-only. A named volume holds the OpenCode data directory, so the agent's database and auth tokens stay isolated from the host.
+**The Docker socket stays untouched.** Agents often need Docker for building and testing, but mounting `/var/run/docker.sock` lets them escape the sandbox by starting privileged containers on your host. jailoc gives each workspace its own isolated Docker daemon via a DinD sidecar — agent-started containers stay inside the sandbox.
 
-**Network isolation** — iptables rules block all RFC 1918, link-local, and CGNAT ranges by default. You explicitly allow the specific internal hosts or networks the agent needs to reach.
+!!! warning "What jailoc does not protect against"
+
+    The agent can still make outbound requests to the **public internet**. If a prompt injection attack instructs the agent to exfiltrate workspace source code to an attacker-controlled public server, jailoc's network rules will not block it. jailoc protects your internal infrastructure and limits file access — it is not a complete defense against the [lethal trifecta](explanation/threat-model.md).
 
 ## Documentation
 
 ### Get started
 
-New to jailoc? Start here.
+New to jailoc? Start here and run your first workspace in minutes.
 
 - [Getting Started](tutorials/getting-started.md) — install jailoc and run your first workspace
 
 ### How-to guides
 
-Task-oriented guides for common operations.
+Step-by-step guides for specific tasks once you're up and running.
 
 - [Installation](how-to/installation.md)
 - [Workspace Configuration](how-to/workspace-configuration.md)
@@ -51,7 +40,7 @@ Task-oriented guides for common operations.
 
 ### Reference
 
-Complete technical descriptions of CLI commands and configuration options.
+Complete technical descriptions of every CLI command and configuration field.
 
 - [CLI Reference](reference/cli.md)
 - [Configuration Reference](reference/configuration.md)
@@ -60,9 +49,10 @@ Complete technical descriptions of CLI commands and configuration options.
 
 ### Explanation
 
-Background reading on how jailoc works and why it's designed the way it is.
+Background on how jailoc works and why it's designed the way it is.
 
 - [Overview](explanation/overview.md)
+- [Threat Model](explanation/threat-model.md)
 - [Container Architecture](explanation/container-architecture.md)
 - [Network Isolation](explanation/network-isolation.md)
 - [Access Modes](explanation/access-modes.md)
