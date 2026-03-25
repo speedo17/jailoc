@@ -35,6 +35,7 @@ func runUp(ctx context.Context) error {
 		return fmt.Errorf("resolve workspace %q: %w", workspaceFlag, err)
 	}
 
+	fmt.Printf("Checking Docker availability...\n")
 	if err := preflightDocker(ctx, ws.Name); err != nil {
 		return fmt.Errorf("docker is not running or not accessible: %w", err)
 	}
@@ -53,6 +54,7 @@ func runUp(ctx context.Context) error {
 		return nil
 	}
 
+	fmt.Printf("Resolving image for workspace %s...\n", ws.Name)
 	finalImage, err := ResolveAndLayerImage(ctx, cfg, ws, appVersion)
 	if err != nil {
 		return fmt.Errorf("resolve image for workspace %q: %w", ws.Name, err)
@@ -78,10 +80,12 @@ func runUp(ctx context.Context) error {
 		Env:              ws.Env,
 	}
 
+	fmt.Printf("Generating compose configuration...\n")
 	if err := compose.WriteComposeFile(params, composePath); err != nil {
 		return fmt.Errorf("write compose file for workspace %q: %w", ws.Name, err)
 	}
 
+	fmt.Printf("Starting workspace %s...\n", ws.Name)
 	startClient := docker.NewClient(composePath, "", ws.Name)
 	if err := startClient.Up(ctx); err != nil {
 		return fmt.Errorf("start workspace %q: %w", ws.Name, err)
@@ -152,16 +156,20 @@ func ResolveAndLayerImage(ctx context.Context, cfg *config.Config, ws *workspace
 	strategy, strategyImage := resolveImageStrategy(ws.Image, cfg.Defaults.Image, ws.Dockerfile)
 	switch strategy {
 	case strategyDirectImage:
+		fmt.Printf("Using workspace image %s\n", strategyImage)
 		return strategyImage, nil
 	case strategyDefaultsDirect:
+		fmt.Printf("Using default image %s\n", strategyImage)
 		return strategyImage, nil
 	case strategyDefaultsOverlay:
+		fmt.Printf("Building overlay on default image %s...\n", strategyImage)
 		final, err := docker.BuildOverlayImage(ctx, strategyImage, *ws)
 		if err != nil {
 			return "", fmt.Errorf("build workspace overlay image: %w", err)
 		}
 		return final, nil
 	default: // strategyCascade
+		fmt.Printf("Resolving base image...\n")
 		base, err := docker.ResolveBaseImage(ctx, cfg, version)
 		if err != nil {
 			return "", fmt.Errorf("resolve base image: %w", err)
