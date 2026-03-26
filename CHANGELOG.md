@@ -1,61 +1,66 @@
-# [1.2.0](https://github.com/seznam/jailoc/compare/1.1.0...1.2.0) (2026-03-26)
+# Changelog
 
-### Bug Fixes
-
-* address code review findings from MR !11 ([d590552](https://github.com/seznam/jailoc/commit/d590552bf0fe95bf9f865bfca62ff2062a9409bd))
-* **ci:** flatten else-if and remove unused pullImage to fix golangci-lint ([cadbc3f](https://github.com/seznam/jailoc/commit/cadbc3fac537bc7ce139fbfd6fa317bea24c1a2c))
-
-* **ci:** set pages job stage to production so goreleaser needs reference resolves ([05d2c5e](https://github.com/seznam/jailoc/commit/05d2c5e7cf0083ac38212887a152b9a3aaf47a05))
-* **cmd:** exec mode attaches to server instead of starting standalone client ([1d0a08b](https://github.com/seznam/jailoc/commit/1d0a08b2c27fa27b034584effb5d790cdd0bef77))
-* **cmd:** stop attach when opencode container restarts ([a0c0340](https://github.com/seznam/jailoc/commit/a0c0340354597025eb61e08a396407e7d8883f35))
-* **compose:** add DAC_READ_SEARCH cap to fix chown on restricted cache dirs ([398cf29](https://github.com/seznam/jailoc/commit/398cf296ca397a0ac47572a979e46be520d54a7b))
-* **compose:** clean stale containerd state on DinD start to prevent crash loop ([bedd881](https://github.com/seznam/jailoc/commit/bedd8815c9fe3f42582c64636e882a522c882b22))
-* **config,docker:** reject empty-host dockerfile URLs and trim whitespace before fetch ([92c4ac8](https://github.com/seznam/jailoc/commit/92c4ac8f8d7d73bf2377c94d96f02bbfe6411a8b))
-* **config:** defer close, dedup env_file paths, remove dead test code ([426f14f](https://github.com/seznam/jailoc/commit/426f14fd97a75d9c2c45d1267edf9208bc8e64de))
-* **config:** reject whitespace-only workspace image and add image field round-trip tests ([da1cf9a](https://github.com/seznam/jailoc/commit/da1cf9adc16f4fce1472166134777596f0575a97))
-* **config:** suppress gosec G304 [secure] positives in WriteAllowedFiles tests ([e25b5fa](https://github.com/seznam/jailoc/commit/e25b5faf389b5c107c97c9f27fbb622016ec8b99))
-* **config:** write allowed-hosts and allowed-networks files before container start ([954ce6a](https://github.com/seznam/jailoc/commit/954ce6a8511354893cdc3550ffc153b8ca2a4be7))
-* **docker:** suppress errcheck for resp.Body.Close in fetchDockerfile ([c7170dc](https://github.com/seznam/jailoc/commit/c7170dc325d0be292de39b4d044c0bb3eb6b50c2))
-* **docker:** suppress gosec SSRF [secure] positive on validated URL fetch ([6967829](https://github.com/seznam/jailoc/commit/69678293d67f1fd299fc2f1d267626ed1e582928))
-* **docker:** use content-hash tag for preset image and fix size limit check ([778e9d2](https://github.com/seznam/jailoc/commit/778e9d25aee892013c03f019287fd8a1c40f6113))
-* **lint:** resolve errcheck, gosec, and staticcheck findings ([7ceafee](https://github.com/seznam/jailoc/commit/7ceafee96c8fb5dcf9abceea337a1ccc3da09c1d))
-* **lint:** suppress gosec [secure] positives for validated paths and temp files ([b0b2268](https://github.com/seznam/jailoc/commit/b0b226891283d9ac62ec72799b843e74e944c91d))
-* **lint:** suppress remaining gosec G703 [secure] positive in workspace test ([0283cd5](https://github.com/seznam/jailoc/commit/0283cd58e7157a0fcbd98ad783d18e71a3e7d8ea))
+## [1.3.0](https://github.com/seznam/jailoc/compare/v1.2.0...v1.3.0) (2026-03-26)
 
 ### Features
 
-* **attach:** add workspace watchdog to detach when backend stops ([b651dfa](https://github.com/seznam/jailoc/commit/b651dfa9ea3922ed3d960d464c41dfad055b19c2))
-* **cmd:** accept optional path argument and warn on broad paths ([0b634cb](https://github.com/seznam/jailoc/commit/0b634cba62fe84bf107d65e7c972152f5a6e8714))
-* **cmd:** add granular progress logging and compose event processor ([73b1749](https://github.com/seznam/jailoc/commit/73b174968036a64c3ae0a5c26bebe32a1e57aa1e))
-* **cmd:** add progress messages for user feedback during operations ([2f59e86](https://github.com/seznam/jailoc/commit/2f59e86b130312330b1ddbd4e183e6ad156033e0))
-* **cmd:** wire workspace-level preset into ResolveAndLayerImage ([66e5db5](https://github.com/seznam/jailoc/commit/66e5db5b56c2aa29e5eed09e14af17dec779a236))
-* **compose:** render user env vars in docker-compose template ([69e542c](https://github.com/seznam/jailoc/commit/69e542c822540cbdadf5bdd392de7b4595acd1f0))
-* **compose:** wire env vars from workspace to compose params ([2fdc75b](https://github.com/seznam/jailoc/commit/2fdc75b427692c9949395ad7dd959b47d89a377a))
-* **config:** add Defaults section and env/env_file fields to Workspace ([a36c27a](https://github.com/seznam/jailoc/commit/a36c27a76db6eda9105928caf61da089b9e933f8))
-* **config:** add Docker .env file parser ([69ab880](https://github.com/seznam/jailoc/commit/69ab880a04e5be6a22a71e0868d61a1e023b883e))
-* **config:** add dockerfile URL field to ImageConfig and Workspace ([a575795](https://github.com/seznam/jailoc/commit/a575795ebce920a37e120de1fbc10ddcd4b97514))
-* **config:** add image field to Workspace and Defaults with mutual exclusivity validation ([e17d580](https://github.com/seznam/jailoc/commit/e17d580f29784e40d44b94bf617d8a29cbabda8f))
-* **config:** merge global defaults for allowed_hosts and allowed_networks ([9c602b2](https://github.com/seznam/jailoc/commit/9c602b2c6ceb251d509134f2b0ec7ace6a06da03))
-* **config:** validate env format, reserved keys, and env_file paths ([1ba21c0](https://github.com/seznam/jailoc/commit/1ba21c045c0e2c82cdf4099cb5bc56c3995a122e))
-* **docker:** add HTTP Dockerfile fetch function ([d9d6702](https://github.com/seznam/jailoc/commit/d9d67025342a8d8973ace123106f9cc43c04dfae))
-* **docker:** add preset image build from fetched Dockerfile ([2131ffc](https://github.com/seznam/jailoc/commit/2131ffc64956fdb737b141c883772f9cca809c70))
-* **docker:** integrate preset as step 0 in ResolveImage cascade ([51f6bb0](https://github.com/seznam/jailoc/commit/51f6bb040ee95ce8418ec8b6f51f1c844184f76f))
-* **docker:** short-circuit image resolution for workspace image and defaults.image as base ([9396fe3](https://github.com/seznam/jailoc/commit/9396fe3f78e2b521c1f18d6b83f170181766907c))
-* **workspace:** propagate dockerfile field through resolution ([a6bcd15](https://github.com/seznam/jailoc/commit/a6bcd1549bcf1de2ff7cc02d0918a7b7e59de87a))
-* **workspace:** resolve and merge env vars from defaults, env_file, and workspace ([8df07a3](https://github.com/seznam/jailoc/commit/8df07a3c62ca28ed49f249aba50f52f6f018a080))
-
-# [1.1.0](https://github.com/seznam/jailoc/compare/1.0.1...1.1.0) (2026-03-23)
+* add release-please for automated releases ([b10e2f2](https://github.com/seznam/jailoc/commit/b10e2f24f217f2e115242e73b629a2e63bca5d70))
 
 ### Bug Fixes
 
-* **ci:** correct python image path in pages job ([38beb21](https://github.com/seznam/jailoc/commit/38beb2145938100ca3725e81abee034e5041e981))
+* add MIT license and contributing guide ([f7390f0](https://github.com/seznam/jailoc/commit/f7390f0b65f811cd036bdf1483aa7f319b87944e))
 
-* **ci:** exclude Go dirs from setuptools package discovery ([9263212](https://github.com/seznam/jailoc/commit/9263212222b617e51dfec408c4af72b0dce4c569))
-* **ci:** preprocess {{ version }} in docs before zensical build ([cc56dcb](https://github.com/seznam/jailoc/commit/cc56dcbc23dc3d6e30dd0068abb14b902aa356a1))
-* **ci:** restrict pages job to tag pipelines only ([0174dde](https://github.com/seznam/jailoc/commit/0174dde2dd8e215add8db2601f2a58a626af4aca))
-* **ci:** use pipe delimiter in sed to handle branch slashes ([ff0fdf5](https://github.com/seznam/jailoc/commit/ff0fdf56b91176c58bc57b895540358f76c6f653))
+### Miscellaneous
+
+* migrate CI, GoReleaser, and docs to GitHub ([4ea251a](https://github.com/seznam/jailoc/commit/4ea251a461fe009313337f46f0652ded0644f99f))
+
+## [1.2.0](https://github.com/seznam/jailoc/compare/v1.1.0...v1.2.0) (2026-03-26)
 
 ### Features
 
-* **ci:** enable changelog generation via semantic-release ([f484e38](https://github.com/seznam/jailoc/commit/f484e3828f30700f63dd06ea4136b01733d65176))
-* **compose:** set working_dir to first workspace path for opencode service ([d5b175e](https://github.com/seznam/jailoc/commit/d5b175e8c1affbeb38a63b2853796ced12ab7ffd))
+* dockerfile URL presets with HTTP fetch, content-hash tagging, and validation ([3da02ce](https://github.com/seznam/jailoc/commit/3da02ceb55105db7b16ca7262b7c98471e7eb705))
+* defaults section, env/env_file support, and allowed-files write-ahead ([6207da8](https://github.com/seznam/jailoc/commit/6207da8d8caa991f4814d15741e8affdef871445))
+* attach watchdog with container restart detection ([dbab710](https://github.com/seznam/jailoc/commit/dbab7102ed3923f0e23fdf6d667d6ff857035e28))
+* workspace image field, [image]→[base] rename, and mutual exclusivity ([4952608](https://github.com/seznam/jailoc/commit/495260875b012b0aab7381bceb05f35299d0b1ae))
+* progress messages and compose event processor ([f6b3b4f](https://github.com/seznam/jailoc/commit/f6b3b4f60db0ec66500353964f92c73e362bce62))
+
+### Bug Fixes
+
+* DAC_READ_SEARCH cap, Diátaxis docs restructure, exec mode, and path argument ([78346bc](https://github.com/seznam/jailoc/commit/78346bcc3bc3688b5cea77d9b442ad2e6697fa2c))
+
+### Code Refactoring
+
+* two-tier base+overlay image resolution replacing cascade model ([377183a](https://github.com/seznam/jailoc/commit/377183a6407002dadd382632a6a3b71dca0097b5))
+
+### Documentation
+
+* landing page, branding, threat model, and Mermaid diagram polish ([4801ae0](https://github.com/seznam/jailoc/commit/4801ae0711f95f6270dfd87277e61684f9ed1f99))
+
+## [1.1.0](https://github.com/seznam/jailoc/releases/tag/v1.1.0) (2026-03-23)
+
+### Features
+
+* initial sandbox with Dockerfile, DinD sidecar, network isolation, and firewall ([83eb4be](https://github.com/seznam/jailoc/commit/83eb4bed5cb39222a20f1ad64760d3f9d3b699f5))
+* Go CLI core — embedded assets, config, workspace, compose, docker packages ([8b6e3a8](https://github.com/seznam/jailoc/commit/8b6e3a8d41dbb227458225034787955d97bb58b1))
+* cobra subcommands — up, down, attach, status, config, logs, add ([f3d5301](https://github.com/seznam/jailoc/commit/f3d530154b10d931aa9902e323e54751f1de62a0))
+* up command with 4-tier image resolution, CWD detection, and GoReleaser ([ab251c7](https://github.com/seznam/jailoc/commit/ab251c71cb1c93b1912d70573f15028763db1800))
+* entrypoint firewall rules, integration tests, README rewrite, and cleanup ([c8b3346](https://github.com/seznam/jailoc/commit/c8b334627ce99659427e3cb02c851009c124dc00))
+* mount path validation and access modes (remote/exec) with CLI flags ([979ade2](https://github.com/seznam/jailoc/commit/979ade2815ef82b9b0872c4fa939065f5c69101a))
+* working_dir, mermaid diagrams, access modes page, and jailOC rebrand ([25bcfe8](https://github.com/seznam/jailoc/commit/25bcfe89895d60c00f9465df7685d09678928fe5))
+
+### Bug Fixes
+
+* DinD networking, lint issues, progress display, readiness poll, and CVE patches ([cef4531](https://github.com/seznam/jailoc/commit/cef4531e91fe0149849798684df5cf54ee78639e))
+
+### Code Refactoring
+
+* rename module to github.com/seznam/jailoc and migrate to Docker Go SDKs ([a0909b8](https://github.com/seznam/jailoc/commit/a0909b833634b60029b2025992b95e2c21d5c697))
+
+### Tests
+
+* unit test coverage for cmd, compose, config, workspace, and docker ([d7ea5a8](https://github.com/seznam/jailoc/commit/d7ea5a82844763ebece8d198520d7da9ecc16a1a))
+
+### Documentation
+
+* scaffold MkDocs site with pages, dark theme, and downloads ([c700cf5](https://github.com/seznam/jailoc/commit/c700cf56754b0cc3b5185a45e3055034b5cfe766))
+* Czech translation, character easter eggs, and content polish ([1fbe0b9](https://github.com/seznam/jailoc/commit/1fbe0b907d0fe71ff7722e3ddfb4bfb00dfe9870))
