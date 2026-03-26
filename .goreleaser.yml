@@ -43,10 +43,5 @@ release:
     owner: seznam
     name: jailoc
 
-  download: https://github.com/seznam/jailoc.git
-  use_package_registry: true
-  use_job_token: true
-  skip_tls_verify: true
-
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
