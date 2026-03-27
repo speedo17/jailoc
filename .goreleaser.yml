@@ -30,16 +30,12 @@ checksum:
   algorithm: sha256
 
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+  disable: true
 
 release:
   disable: false
-  draft: true
+  draft: false
+  mode: append
   github:
     owner: seznam
     name: jailoc
