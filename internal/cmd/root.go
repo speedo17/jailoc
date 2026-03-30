@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/seznam/jailoc/internal/config"
 	"github.com/seznam/jailoc/internal/docker"
 	"github.com/seznam/jailoc/internal/workspace"
@@ -27,6 +28,11 @@ var rootCmd = &cobra.Command{
 	Short:        "Manage sandboxed OpenCode Docker environments",
 	SilenceUsage: true,
 	Args:         cobra.MaximumNArgs(1),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if noColor, _ := cmd.Flags().GetBool("no-color"); noColor {
+			color.NoColor = true
+		}
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
@@ -46,7 +52,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !workspace.MatchesCWD(ws, targetPath) {
-			fmt.Printf("Path %s is not in workspace %s. Add it? [y/N]: ", targetPath, ws.Name)
+			_, _ = color.New(color.FgYellow, color.Bold).Printf("Path %s is not in workspace %s. Add it? [y/N]: ", targetPath, ws.Name)
 			answer, err := readLineCtx(ctx)
 			if err != nil {
 				return fmt.Errorf("read add-to-workspace prompt response: %w", err)
@@ -68,7 +74,7 @@ var rootCmd = &cobra.Command{
 			if err := config.AddPath(workspaceFlag, targetPath); err != nil {
 				return fmt.Errorf("add path %q to workspace %q: %w", targetPath, workspaceFlag, err)
 			}
-			fmt.Printf("Added %s to workspace %s\n", targetPath, workspaceFlag)
+			_, _ = color.New(color.FgGreen).Printf("Added %s to workspace %s\n", targetPath, workspaceFlag)
 
 			cfg, err = config.Load()
 			if err != nil {
@@ -91,11 +97,11 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !running {
-			fmt.Printf("Starting workspace %s...\n", ws.Name)
+			_, _ = color.New(color.FgCyan).Printf("Starting workspace %s...\n", ws.Name)
 			if err := runUp(ctx); err != nil {
 				return fmt.Errorf("start workspace %q: %w", ws.Name, err)
 			}
-			fmt.Printf("Waiting for OpenCode to be ready on port %d...\n", ws.Port)
+			_, _ = color.New(color.FgCyan).Printf("Waiting for OpenCode to be ready on port %d...\n", ws.Port)
 			if err := waitForReady(ctx, ws.Port, client); err != nil {
 				return fmt.Errorf("wait for workspace %q readiness: %w", ws.Name, err)
 			}
@@ -111,10 +117,10 @@ var rootCmd = &cobra.Command{
 		var attachErr error
 		switch mode {
 		case config.ModeExec:
-			fmt.Printf("Attaching to workspace %s (exec mode)...\n", ws.Name)
+			_, _ = color.New(color.FgCyan).Printf("Attaching to workspace %s (exec mode)...\n", ws.Name)
 			attachErr = attachExec(attachCtx, client)
 		default:
-			fmt.Printf("Attaching to workspace %s (remote mode)...\n", ws.Name)
+			_, _ = color.New(color.FgCyan).Printf("Attaching to workspace %s (remote mode)...\n", ws.Name)
 			attachErr = attachOnHost(attachCtx, ws)
 		}
 		if attachErr != nil {
@@ -129,6 +135,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&workspaceFlag, "workspace", "w", "default", "workspace name")
 	rootCmd.PersistentFlags().BoolVar(&remoteFlag, "remote", false, "Use remote mode (host-side opencode attach)")
 	rootCmd.PersistentFlags().BoolVar(&execFlag, "exec", false, "Use exec mode (docker exec opencode inside container)")
+	rootCmd.PersistentFlags().Bool("no-color", false, "disable colored output")
 	rootCmd.MarkFlagsMutuallyExclusive("remote", "exec")
 }
 
@@ -184,8 +191,8 @@ func confirmBroadPath(ctx context.Context, path string) (bool, error) {
 		return true, nil
 	}
 
-	fmt.Printf("WARNING: %q is a very broad path — this will mount your entire directory tree into the container.\n", path)
-	fmt.Print("Are you sure? [y/N]: ")
+	_, _ = color.New(color.FgYellow).Printf("WARNING: %q is a very broad path — this will mount your entire directory tree into the container.\n", path)
+	_, _ = color.New(color.FgYellow, color.Bold).Print("Are you sure? [y/N]: ")
 
 	answer, err := readLineCtx(ctx)
 	if err != nil {

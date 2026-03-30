@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/fatih/color"
 	"github.com/seznam/jailoc/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -35,50 +36,50 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	if mode == "" {
 		mode = "(auto-detect)"
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "Mode: %s\n", mode)
+	_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "Mode: %s\n", mode)
 
 	baseDockerfile := cfg.Base.Dockerfile
 	if baseDockerfile == "" {
 		baseDockerfile = "(embedded)"
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "Base Dockerfile: %s\n", baseDockerfile)
+	_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "Base Dockerfile: %s\n", baseDockerfile)
 
 	defaultsImage := cfg.Defaults.Image
 	if defaultsImage == "" {
 		defaultsImage = "(not set)"
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "Defaults Image: %s\n", defaultsImage)
+	_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "Defaults Image: %s\n", defaultsImage)
 
-	_, _ = fmt.Fprintf(os.Stdout, "Defaults Allowed Hosts:\n")
+	_, _ = color.New(color.FgCyan, color.Bold).Fprintf(os.Stdout, "Defaults Allowed Hosts:\n")
 	if len(cfg.Defaults.AllowedHosts) == 0 {
-		_, _ = fmt.Fprintf(os.Stdout, "  (none)\n")
+		_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "  (none)\n")
 	} else {
 		for _, host := range cfg.Defaults.AllowedHosts {
 			_, _ = fmt.Fprintf(os.Stdout, "  - %s\n", host)
 		}
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "Defaults Allowed Networks:\n")
+	_, _ = color.New(color.FgCyan, color.Bold).Fprintf(os.Stdout, "Defaults Allowed Networks:\n")
 	if len(cfg.Defaults.AllowedNetworks) == 0 {
-		_, _ = fmt.Fprintf(os.Stdout, "  (none)\n")
+		_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "  (none)\n")
 	} else {
 		for _, network := range cfg.Defaults.AllowedNetworks {
 			_, _ = fmt.Fprintf(os.Stdout, "  - %s\n", network)
 		}
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "Defaults Env:\n")
+	_, _ = color.New(color.FgCyan, color.Bold).Fprintf(os.Stdout, "Defaults Env:\n")
 	if len(cfg.Defaults.Env) == 0 {
-		_, _ = fmt.Fprintf(os.Stdout, "  (none)\n")
+		_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "  (none)\n")
 	} else {
 		for _, env := range cfg.Defaults.Env {
 			_, _ = fmt.Fprintf(os.Stdout, "  - %s\n", env)
 		}
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "Defaults Env Files:\n")
+	_, _ = color.New(color.FgCyan, color.Bold).Fprintf(os.Stdout, "Defaults Env Files:\n")
 	if len(cfg.Defaults.EnvFile) == 0 {
-		_, _ = fmt.Fprintf(os.Stdout, "  (none)\n")
+		_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "  (none)\n")
 	} else {
 		for _, f := range cfg.Defaults.EnvFile {
 			_, _ = fmt.Fprintf(os.Stdout, "  - %s\n", f)
@@ -91,29 +92,29 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	for _, name := range names {
 		ws := cfg.Workspaces[name]
 
-		_, _ = fmt.Fprintf(os.Stdout, "Workspace: %s\n", name)
+		_, _ = color.New(color.FgCyan, color.Bold).Fprintf(os.Stdout, "Workspace: %s\n", name)
 
-		_, _ = fmt.Fprintf(os.Stdout, "  Paths:\n")
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Paths:\n")
 		if len(ws.Paths) == 0 {
-			_, _ = fmt.Fprintf(os.Stdout, "    (none)\n")
+			_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "    (none)\n")
 		} else {
 			for _, path := range ws.Paths {
 				_, _ = fmt.Fprintf(os.Stdout, "    - %s\n", path)
 			}
 		}
 
-		_, _ = fmt.Fprintf(os.Stdout, "  Allowed Hosts:\n")
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Allowed Hosts:\n")
 		if len(ws.AllowedHosts) == 0 {
-			_, _ = fmt.Fprintf(os.Stdout, "    (none)\n")
+			_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "    (none)\n")
 		} else {
 			for _, host := range ws.AllowedHosts {
 				_, _ = fmt.Fprintf(os.Stdout, "    - %s\n", host)
 			}
 		}
 
-		_, _ = fmt.Fprintf(os.Stdout, "  Allowed Networks:\n")
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Allowed Networks:\n")
 		if len(ws.AllowedNetworks) == 0 {
-			_, _ = fmt.Fprintf(os.Stdout, "    (none)\n")
+			_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "    (none)\n")
 		} else {
 			for _, network := range ws.AllowedNetworks {
 				_, _ = fmt.Fprintf(os.Stdout, "    - %s\n", network)
@@ -124,32 +125,32 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		if buildContext == "" {
 			buildContext = "(none)"
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "  Build Context: %s\n", buildContext)
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Build Context: %s\n", buildContext)
 
 		wsImage := ws.Image
 		if wsImage == "" {
 			wsImage = "(not set)"
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "  Image: %s\n", wsImage)
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Image: %s\n", wsImage)
 
 		wsDockerfile := ws.Dockerfile
 		if wsDockerfile == "" {
 			wsDockerfile = "(not set)"
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "  Dockerfile: %s\n", wsDockerfile)
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Dockerfile: %s\n", wsDockerfile)
 
-		_, _ = fmt.Fprintf(os.Stdout, "  Env:\n")
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Env:\n")
 		if len(ws.Env) == 0 {
-			_, _ = fmt.Fprintf(os.Stdout, "    (none)\n")
+			_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "    (none)\n")
 		} else {
 			for _, env := range ws.Env {
 				_, _ = fmt.Fprintf(os.Stdout, "    - %s\n", env)
 			}
 		}
 
-		_, _ = fmt.Fprintf(os.Stdout, "  Env Files:\n")
+		_, _ = color.New(color.FgCyan).Fprintf(os.Stdout, "  Env Files:\n")
 		if len(ws.EnvFile) == 0 {
-			_, _ = fmt.Fprintf(os.Stdout, "    (none)\n")
+			_, _ = color.New(color.FgHiBlack).Fprintf(os.Stdout, "    (none)\n")
 		} else {
 			for _, f := range ws.EnvFile {
 				_, _ = fmt.Fprintf(os.Stdout, "    - %s\n", f)
