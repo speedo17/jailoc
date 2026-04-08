@@ -11,6 +11,7 @@ import (
 	"github.com/seznam/jailoc/internal/compose"
 	"github.com/seznam/jailoc/internal/config"
 	"github.com/seznam/jailoc/internal/docker"
+	"github.com/seznam/jailoc/internal/embed"
 	"github.com/seznam/jailoc/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -68,6 +69,10 @@ func runUp(ctx context.Context) error {
 
 	if err := config.WriteAllowedFiles(ws.Name, cfg); err != nil {
 		return fmt.Errorf("write allowed files for workspace %q: %w", ws.Name, err)
+	}
+
+	if err := writeEntrypoint(cacheDir); err != nil {
+		return err
 	}
 
 	params := compose.ComposeParams{
@@ -191,6 +196,21 @@ func isComposeFileMissing(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "no such file or directory") ||
 		strings.Contains(msg, "open ") && strings.Contains(msg, "docker-compose.yml")
+}
+
+// writeEntrypoint writes the embedded entrypoint.sh to the workspace cache dir
+// so it can be bind-mounted into the container. Uses 0o755 (not the usual 0o600)
+// because Docker bind-mounts preserve host permissions and the script must be
+// executable inside the container.
+func writeEntrypoint(cacheDir string) error {
+	p := filepath.Join(cacheDir, "entrypoint.sh")
+	if err := os.WriteFile(p, embed.Entrypoint(), 0o755); err != nil { //nolint:gosec // 0o755 required: bind-mount preserves host perms, script must be executable in container
+		return fmt.Errorf("write entrypoint: %w", err)
+	}
+	if err := os.Chmod(p, 0o755); err != nil { //nolint:gosec // ensure +x even when file already existed
+		return fmt.Errorf("chmod entrypoint: %w", err)
+	}
+	return nil
 }
 
 func init() {
