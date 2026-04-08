@@ -24,6 +24,8 @@ type Resolved struct {
 	Dockerfile      string
 	Image           string
 	Env             []string
+	SSHAuthSock     bool
+	GitConfig       bool
 }
 
 func Resolve(cfg *config.Config, name string) (*Resolved, error) {
@@ -94,6 +96,8 @@ func Resolve(cfg *config.Config, name string) (*Resolved, error) {
 		Dockerfile:      ws.Dockerfile,
 		Image:           ws.Image,
 		Env:             mergedEnv,
+		SSHAuthSock:     boolWithOverride(cfg.Defaults.SSHAuthSock, ws.SSHAuthSock),
+		GitConfig:       boolPtrWithDefault(cfg.Defaults.GitConfig, ws.GitConfig, true),
 	}, nil
 }
 
@@ -196,4 +200,21 @@ func expandPath(path string) (string, error) {
 	}
 
 	return filepath.Join(home, path[1:]), nil
+}
+
+func boolWithOverride(defaultVal bool, override *bool) bool {
+	if override != nil {
+		return *override
+	}
+	return defaultVal
+}
+
+func boolPtrWithDefault(defaultVal *bool, override *bool, fallback bool) bool {
+	if override != nil {
+		return *override
+	}
+	if defaultVal != nil {
+		return *defaultVal
+	}
+	return fallback
 }
