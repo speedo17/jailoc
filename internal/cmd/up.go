@@ -98,6 +98,7 @@ func runUp(ctx context.Context, args []string) error {
 		Port:             ws.Port,
 		Image:            finalImage,
 		Paths:            ws.Paths,
+		Mounts:           ws.Mounts,
 		AllowedHosts:     ws.AllowedHosts,
 		AllowedNetworks:  ws.AllowedNetworks,
 		OpenCodePassword: os.Getenv("OPENCODE_SERVER_PASSWORD"),
@@ -107,6 +108,8 @@ func runUp(ctx context.Context, args []string) error {
 		GitConfig:        resolveGitConfig(ws.GitConfig),
 		CPU:              ws.CPU,
 		Memory:           ws.Memory,
+		UseDataVolume:    !compose.MountsContainTarget(ws.Mounts, "/home/agent/.local/share/opencode"),
+		UseCacheVolume:   !compose.MountsContainTarget(ws.Mounts, "/home/agent/.cache"),
 	}
 
 	_, _ = color.New(color.FgCyan).Printf("Generating compose configuration...\n")

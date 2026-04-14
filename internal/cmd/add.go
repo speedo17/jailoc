@@ -115,16 +115,23 @@ func maybeRestartWorkspace(ctx context.Context, ws *workspace.Resolved) error {
 		return fmt.Errorf("re-resolve workspace for restart: %w", err)
 	}
 
-	password := os.Getenv("OPENCODE_SERVER_PASSWORD")
 	params := compose.ComposeParams{
 		WorkspaceName:    ws2.Name,
 		Port:             ws2.Port,
 		Image:            "jailoc-base:embedded",
 		Paths:            ws2.Paths,
+		Mounts:           ws2.Mounts,
 		AllowedHosts:     ws2.AllowedHosts,
 		AllowedNetworks:  ws2.AllowedNetworks,
-		OpenCodePassword: password,
+		OpenCodePassword: os.Getenv("OPENCODE_SERVER_PASSWORD"),
 		Env:              ws2.Env,
+		SSHAuthSock:      resolveSSHAuthSock(ws2.SSHAuthSock),
+		SSHKnownHosts:    resolveSSHKnownHosts(ws2.SSHAuthSock),
+		GitConfig:        resolveGitConfig(ws2.GitConfig),
+		CPU:              ws2.CPU,
+		Memory:           ws2.Memory,
+		UseDataVolume:    !compose.MountsContainTarget(ws2.Mounts, "/home/agent/.local/share/opencode"),
+		UseCacheVolume:   !compose.MountsContainTarget(ws2.Mounts, "/home/agent/.cache"),
 	}
 
 	if err := config.WriteAllowedFiles(ws2.Name, cfg); err != nil {

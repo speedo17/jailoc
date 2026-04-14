@@ -10,14 +10,17 @@ services:
 {{- range .Paths}}
       - {{.}}:{{.}}
 {{- end}}
-      - ${HOME}/.config/opencode:/home/agent/.config/opencode:ro
-      - ${HOME}/.opencode:/home/agent/.opencode:ro
-      - ${HOME}/.claude/transcripts:/home/agent/.claude/transcripts
-      - ${HOME}/.agents:/home/agent/.agents:ro
+{{- if .UseDataVolume}}
+      - opencode-data-{{.WorkspaceName}}:/home/agent/.local/share/opencode
+{{- end}}
+{{- if .UseCacheVolume}}
+      - opencode-cache-{{.WorkspaceName}}:/home/agent/.cache
+{{- end}}
+{{- range .Mounts}}
+      - {{.}}
+{{- end}}
       - ${HOME}/.config/jailoc/workspaces/{{.WorkspaceName}}:/etc/jailoc:ro
       - ${HOME}/.cache/jailoc/{{.WorkspaceName}}/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
-      - opencode-data-{{.WorkspaceName}}:/home/agent/.local/share/opencode
-      - opencode-cache-{{.WorkspaceName}}:/home/agent/.cache
       - dind-certs-client:/certs/client:ro
 {{- if .SSHAuthSock}}
       - {{.SSHAuthSock}}:/run/ssh-agent.sock
@@ -103,8 +106,12 @@ services:
       - "2376"
 
 volumes:
+{{- if .UseDataVolume}}
   opencode-data-{{.WorkspaceName}}:
+{{- end}}
+{{- if .UseCacheVolume}}
   opencode-cache-{{.WorkspaceName}}:
+{{- end}}
   dind-certs-ca:
   dind-certs-client:
   dind-data:
