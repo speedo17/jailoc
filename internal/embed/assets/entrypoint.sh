@@ -78,7 +78,7 @@ if [ -S /run/ssh-agent.sock ]; then
 fi
 
 if [ -d /home/agent/.ssh ]; then
-  chown 1000:1000 /home/agent/.ssh
+  chown 1000:1000 /home/agent/.ssh 2>/dev/null || true
 fi
 
 exec setpriv --reuid=1000 --regid=1000 --init-groups --inh-caps=-all --no-new-privs -- env HOME=/home/agent "$@"
