@@ -70,7 +70,8 @@ iptables -A OUTPUT -d 192.168.0.0/16 -j DROP
 iptables -A OUTPUT -d 169.254.0.0/16 -j DROP
 iptables -A OUTPUT -d 100.64.0.0/10 -j DROP
 
-chown -R 1000:1000 /home/agent/.local /home/agent/.cache /home/agent/.claude
+chown -R 1000:1000 /home/agent/.local /home/agent/.cache
+chown 1000:1000 /home/agent/.claude
 
 if [ -S /run/ssh-agent.sock ]; then
   chown 1000:1000 /run/ssh-agent.sock 2>/dev/null || true
