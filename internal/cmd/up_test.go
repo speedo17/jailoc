@@ -496,10 +496,8 @@ func TestCheckPortConflict(t *testing.T) {
 				if !strings.Contains(err.Error(), tc.errSubstr) {
 					t.Fatalf("error %q should contain %q", err.Error(), tc.errSubstr)
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}
