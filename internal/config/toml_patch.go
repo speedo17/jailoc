@@ -151,7 +151,8 @@ func findArrayEnd(lines []string, startIdx int) (int, int, error) {
 	charLoop:
 		for j < len(s) {
 			ch := s[j]
-			if inString {
+			switch {
+			case inString:
 				if ch == '\\' {
 					j += 2 // skip the escaped character
 					continue
@@ -159,11 +160,11 @@ func findArrayEnd(lines []string, startIdx int) (int, int, error) {
 				if ch == '"' {
 					inString = false
 				}
-			} else if inLiteralString {
+			case inLiteralString:
 				if ch == '\'' {
 					inLiteralString = false
 				}
-			} else {
+			default:
 				switch ch {
 				case '"':
 					inString = true

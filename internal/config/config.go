@@ -691,7 +691,9 @@ func AddPath(workspace, path string) error {
 		return fmt.Errorf("workspace %q does not exist", workspace)
 	}
 
-	newPaths := append(ws.Paths[:len(ws.Paths):len(ws.Paths)], path)
+	newPaths := make([]string, len(ws.Paths), len(ws.Paths)+1)
+	copy(newPaths, ws.Paths)
+	newPaths = append(newPaths, path)
 
 	patched, err := patchStringArray(raw, workspace, "paths", newPaths)
 	if err != nil {
