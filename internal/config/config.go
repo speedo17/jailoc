@@ -672,8 +672,14 @@ func ResolveMode(configured string) string {
 
 func AddPath(workspace, path string) error {
 	configPath := ConfigPath()
-	cfg, err := decode(configPath)
+
+	raw, err := os.ReadFile(configPath) //nolint:gosec // configPath is derived from ConfigPath(), not user input
 	if err != nil {
+		return fmt.Errorf("read config for AddPath: %w", err)
+	}
+
+	var cfg Config
+	if _, err := toml.Decode(string(raw), &cfg); err != nil {
 		return fmt.Errorf("load config for AddPath: %w", err)
 	}
 	if cfg.Workspaces == nil {
@@ -685,17 +691,15 @@ func AddPath(workspace, path string) error {
 		return fmt.Errorf("workspace %q does not exist", workspace)
 	}
 
-	ws.Paths = append(ws.Paths, path)
-	cfg.Workspaces[workspace] = ws
+	newPaths := append(ws.Paths[:len(ws.Paths):len(ws.Paths)], path)
 
-	f, err := os.Create(configPath) //nolint:gosec // configPath is derived from ConfigPath(), not user input
+	patched, err := patchStringArray(raw, workspace, "paths", newPaths)
 	if err != nil {
-		return fmt.Errorf("open config for write: %w", err)
+		return fmt.Errorf("patch config: %w", err)
 	}
-	defer func() { _ = f.Close() }()
 
-	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
-		return fmt.Errorf("encode updated config: %w", err)
+	if err := os.WriteFile(configPath, patched, 0o600); err != nil {
+		return fmt.Errorf("write config: %w", err)
 	}
 
 	return nil
