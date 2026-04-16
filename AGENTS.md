@@ -90,7 +90,7 @@ Two services per workspace on a shared Docker network:
 
 ## Development environment
 
-`Dockerfile.jailoc` at the repo root is a workspace overlay for developing jailoc
+`dev/Dockerfile.jailoc` is a workspace overlay for developing jailoc
 inside a jailoc container. It extends the base image with the Go toolchain, gopls,
 and golangci-lint matching CI.
 
@@ -99,7 +99,7 @@ Add to `~/.config/jailoc/config.toml`:
 ```toml
 [workspaces.jailoc]
 paths = ["/path/to/jailoc"]
-dockerfile = "/path/to/jailoc/Dockerfile.jailoc"
+dockerfile = "https://raw.githubusercontent.com/seznam/jailoc/main/dev/Dockerfile.jailoc"
 ```
 
 `jailoc up jailoc` starts a container with Go, gopls, and golangci-lint on PATH.

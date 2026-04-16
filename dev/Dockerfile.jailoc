@@ -5,7 +5,7 @@
 #
 #   [workspaces.jailoc]
 #   paths = ["/path/to/jailoc"]
-#   dockerfile = "/path/to/jailoc/Dockerfile.jailoc"
+#   dockerfile = "https://raw.githubusercontent.com/seznam/jailoc/main/dev/Dockerfile.jailoc"
 #
 # jailoc injects the resolved base image via the BASE build arg.
 
