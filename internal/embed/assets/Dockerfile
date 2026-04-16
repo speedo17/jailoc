@@ -28,7 +28,7 @@ ARG PYRIGHT_VERSION=1.1.408
 # renovate: datasource=npm depName=bash-language-server
 ARG BASH_LS_VERSION=5.6.0
 # renovate: datasource=github-releases depName=sst/opencode
-ARG OPENCODE_VERSION=v1.3.17
+ARG OPENCODE_VERSION=v1.4.6
 
 # =============================================================================
 # Builder stage — compile language servers and install npm modules.
