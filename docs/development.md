@@ -86,3 +86,17 @@ One file per package concern: `docker.go`, `compose.go`, `workspace.go`, `config
 ### Testing
 
 Unit tests live beside their source files as `*_test.go`. Integration tests live in `internal/integration_test.go` and require the `//go:build integration` build tag. Tests use `t.Parallel()` and a table-driven style with `t.Run`. There are no mocks, fixtures, or testdata directories.
+
+## Developing inside a jailoc container
+
+`Dockerfile.jailoc` at the repo root is a workspace overlay that extends the default image with the Go toolchain, gopls, and golangci-lint. It lets you develop jailoc inside a jailoc container.
+
+Add to `~/.config/jailoc/config.toml`:
+
+```toml
+[workspaces.jailoc]
+paths = ["/path/to/jailoc"]
+dockerfile = "/path/to/jailoc/Dockerfile.jailoc"
+```
+
+Then run `jailoc up jailoc`. The standard build and test commands work inside the container unchanged.

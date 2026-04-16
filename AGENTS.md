@@ -88,6 +88,23 @@ Two services per workspace on a shared Docker network:
 - `t.Setenv()` is incompatible with `t.Parallel()` — tests using `t.Setenv` must NOT be parallel
 - `httptest.NewServer` in parallel subtests: use `t.Cleanup(ts.Close)`, NOT `defer ts.Close()` (defer runs before parallel subtests start)
 
+## Development environment
+
+`Dockerfile.jailoc` at the repo root is a workspace overlay for developing jailoc
+inside a jailoc container. It extends the base image with the Go toolchain, gopls,
+and golangci-lint matching CI.
+
+Add to `~/.config/jailoc/config.toml`:
+
+```toml
+[workspaces.jailoc]
+paths = ["/path/to/jailoc"]
+dockerfile = "/path/to/jailoc/Dockerfile.jailoc"
+```
+
+`jailoc up jailoc` starts a container with Go, gopls, and golangci-lint on PATH.
+Run `go build`, `go test ./...`, and `golangci-lint run` inside as usual.
+
 ## CI/CD
 
 GitHub Actions workflows:
