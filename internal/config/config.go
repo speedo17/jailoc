@@ -326,6 +326,16 @@ func validateEnvFiles(paths []string, context string) error {
 		if _, err := os.Stat(p); err != nil {
 			return fmt.Errorf("%s: env_file %q does not exist", context, p)
 		}
+		entries, err := ParseEnvFile(p)
+		if err != nil {
+			return fmt.Errorf("%s: %w", context, err)
+		}
+		for _, entry := range entries {
+			key, _, _ := strings.Cut(entry, "=")
+			if reservedEnvKeys[key] {
+				return fmt.Errorf("%s: env_file %q: key %q is reserved and cannot be overridden", context, p, key)
+			}
+		}
 	}
 	return nil
 }

@@ -1467,6 +1467,58 @@ func TestValidateEnvReservedKeys(t *testing.T) {
 				t.Fatalf("expected workspace name in error, got: %v", err)
 			}
 		})
+
+		t.Run("defaults/env_file/"+key, func(t *testing.T) {
+			t.Parallel()
+			f, err := os.CreateTemp(t.TempDir(), "envfile")
+			if err != nil {
+				t.Fatalf("create temp file: %v", err)
+			}
+			if _, err := fmt.Fprintf(f, "%s=anything\n", key); err != nil {
+				t.Fatalf("write temp file: %v", err)
+			}
+			_ = f.Close()
+			cfg := &Config{
+				Defaults: Defaults{EnvFile: []string{f.Name()}},
+			}
+			err = Validate(cfg)
+			if err == nil {
+				t.Fatalf("expected error for reserved key %q in env_file", key)
+			}
+			if !strings.Contains(err.Error(), "reserved") {
+				t.Fatalf("expected 'reserved' in error, got: %v", err)
+			}
+			if !strings.Contains(err.Error(), key) {
+				t.Fatalf("expected key %q in error, got: %v", key, err)
+			}
+		})
+
+		t.Run("workspace/env_file/"+key, func(t *testing.T) {
+			t.Parallel()
+			f, err := os.CreateTemp(t.TempDir(), "envfile")
+			if err != nil {
+				t.Fatalf("create temp file: %v", err)
+			}
+			if _, err := fmt.Fprintf(f, "%s=anything\n", key); err != nil {
+				t.Fatalf("write temp file: %v", err)
+			}
+			_ = f.Close()
+			cfg := &Config{
+				Workspaces: map[string]Workspace{
+					"myws": {EnvFile: []string{f.Name()}},
+				},
+			}
+			err = Validate(cfg)
+			if err == nil {
+				t.Fatalf("expected error for reserved key %q in env_file", key)
+			}
+			if !strings.Contains(err.Error(), "reserved") {
+				t.Fatalf("expected 'reserved' in error, got: %v", err)
+			}
+			if !strings.Contains(err.Error(), key) {
+				t.Fatalf("expected key %q in error, got: %v", key, err)
+			}
+		})
 	}
 }
 
