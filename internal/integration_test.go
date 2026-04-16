@@ -231,6 +231,46 @@ func TestUpIdempotent(t *testing.T) {
 	}
 }
 
+func TestRestartLifecycle(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	if !dockerAvailable(ctx) {
+		t.Skip("requires Docker daemon")
+	}
+
+	home := testHome(t)
+	if err := writeMinimalConfig(home, t.TempDir()); err != nil {
+		t.Fatalf("write minimal config: %v", err)
+	}
+
+	upOut, upErr := runJailoc(ctx, home, "up")
+	if upErr != nil {
+		if isImagePullOrAuthFailure(upOut) {
+			t.Skip("requires accessible image registry")
+		}
+		t.Fatalf("run jailoc up: %v\noutput:\n%s", upErr, upOut)
+	}
+
+	restartOut, restartErr := runJailoc(ctx, home, "restart")
+	if restartErr != nil {
+		t.Fatalf("run jailoc restart: %v\noutput:\n%s", restartErr, restartOut)
+	}
+
+	statusOut, statusErr := runJailoc(ctx, home, "status")
+	if statusErr != nil {
+		t.Fatalf("run jailoc status after restart: %v\noutput:\n%s", statusErr, statusOut)
+	}
+	if !strings.Contains(strings.ToLower(statusOut), "running") {
+		t.Errorf("expected running status after restart, got output:\n%s", statusOut)
+	}
+
+	downOut, downErr := runJailoc(ctx, home, "down")
+	if downErr != nil {
+		t.Fatalf("run jailoc down: %v\noutput:\n%s", downErr, downOut)
+	}
+}
+
 func TestEnvVarsReachContainer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
