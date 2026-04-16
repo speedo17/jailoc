@@ -41,11 +41,11 @@ The embedded Dockerfile defines an Ubuntu 24.04 base image. Exact versions are p
 
 | Category | Tools |
 |----------|-------|
-| Runtimes | Go, Node.js, Bun, Python 3 + uv |
-| Package managers | npm, Yarn (via corepack), Homebrew |
-| Language servers | gopls, typescript-language-server, pyright, yaml-language-server, bash-language-server, jsonnet-language-server, helm-ls |
-| CLI tools | Docker CLI, ripgrep, fd, fzf, jq, vim, git, openssh-client |
-| Agent stack | OpenCode, oh-my-openagent |
+| Runtimes | Node.js, Python 3 |
+| Package managers | npm |
+| Language servers | typescript-language-server, pyright, yaml-language-server, bash-language-server |
+| CLI tools | ripgrep, fd, jq, git, openssh-client, curl |
+| Agent stack | OpenCode |
 
 Source: [`internal/embed/assets/Dockerfile`](https://github.com/seznam/jailoc/blob/master/internal/embed/assets/Dockerfile)
 
@@ -86,3 +86,17 @@ One file per package concern: `docker.go`, `compose.go`, `workspace.go`, `config
 ### Testing
 
 Unit tests live beside their source files as `*_test.go`. Integration tests live in `internal/integration_test.go` and require the `//go:build integration` build tag. Tests use `t.Parallel()` and a table-driven style with `t.Run`. There are no mocks, fixtures, or testdata directories.
+
+## Developing inside a jailoc container
+
+`dev/Dockerfile.jailoc` is a workspace overlay that extends the default image with the Go toolchain, gopls, and golangci-lint. It lets you develop jailoc inside a jailoc container.
+
+Add to `~/.config/jailoc/config.toml`:
+
+```toml
+[workspaces.jailoc]
+paths = ["/path/to/jailoc"]
+dockerfile = "https://raw.githubusercontent.com/seznam/jailoc/main/dev/Dockerfile.jailoc"
+```
+
+Then run `jailoc up jailoc`. The standard build and test commands work inside the container unchanged.
