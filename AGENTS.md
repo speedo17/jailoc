@@ -96,6 +96,17 @@ GitHub Actions workflows:
 - **Re-release** (`.github/workflows/release.yml`): manual `workflow_dispatch` fallback — re-runs GoReleaser for an existing tag
 - **Docs** (`.github/workflows/release-please.yml`): runs as part of the release process — zensical + mkdocs-macros-plugin → GitHub Pages
 
+## Before committing
+
+Run these locally and fix all failures before staging a commit:
+
+```sh
+go build ./...
+go test ./...
+go vet ./...
+golangci-lint run
+```
+
 ## Commits
 
 `type(scope): description` — types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`. Imperative mood.
