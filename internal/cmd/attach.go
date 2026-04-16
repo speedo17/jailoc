@@ -22,7 +22,7 @@ import (
 // title to title. An empty title clears it. w is typically os.Stdout, but is
 // taken as a parameter for testability.
 func setTerminalTitle(w io.Writer, title string) {
-	fmt.Fprintf(w, "\033]0;%s\007", title)
+	_, _ = fmt.Fprintf(w, "\033]0;%s\007", title)
 }
 
 func attachHostArgs(serverURL, password, dir string) []string {
