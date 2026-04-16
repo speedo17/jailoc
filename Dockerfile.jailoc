@@ -14,7 +14,7 @@ FROM ${BASE}
 
 # Go toolchain — required by golangci-lint and gopls at runtime.
 # renovate: datasource=golang-version depName=go
-ARG GO_VERSION=1.26.2
+ARG GO_VERSION=1.26.1
 RUN set -eux; \
     ARCH=$(dpkg --print-architecture); \
     curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" \
