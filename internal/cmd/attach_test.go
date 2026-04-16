@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os/exec"
@@ -9,6 +10,34 @@ import (
 	"testing"
 	"time"
 )
+
+func TestSetTerminalTitle(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sets title", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		setTerminalTitle(&buf, "jailoc | myworkspace")
+		got := buf.String()
+		want := "\033]0;jailoc | myworkspace\007"
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("clears title with empty string", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		setTerminalTitle(&buf, "")
+		got := buf.String()
+		want := "\033]0;\007"
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+}
 
 func TestAttachHostArgs(t *testing.T) {
 	t.Parallel()

@@ -250,7 +250,7 @@ func (c *Client) TailLogs(ctx context.Context, n int, w io.Writer) error {
 	return nil
 }
 
-func (c *Client) Exec(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func (c *Client) Exec(ctx context.Context, args []string, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	var stdinRC io.ReadCloser
 	if stdin != nil {
 		if rc, ok := stdin.(io.ReadCloser); ok {
@@ -285,6 +285,7 @@ func (c *Client) Exec(ctx context.Context, args []string, stdin io.Reader, stdou
 	exitCode, err := svc.Exec(ctx, "jailoc-"+c.workspace, api.RunOptions{
 		Service:     "opencode",
 		Command:     args,
+		Environment: env,
 		Tty:         true,
 		Interactive: stdin != nil,
 		Index:       1,

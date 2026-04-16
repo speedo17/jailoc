@@ -50,6 +50,10 @@ Two named volumes are shared between both containers: one for TLS certificates (
 
 Environment variables configured via `env` or `env_file` in the workspace config or the `[defaults]` section are passed to the opencode container alongside the system variables required for dind connectivity. Values are literal strings — no host environment variable expansion is performed.
 
+jailoc also injects two variables for programmatic detection: `JAILOC=1` (a fixed marker indicating the process is running inside a jailoc container) and `JAILOC_WORKSPACE=<name>` (the workspace name). These allow agents, scripts, and tooling to detect the sandboxed context without inspecting the filesystem or environment. Both keys are reserved and cannot be overridden via `env` or `env_file`.
+
+When `jailoc attach` connects a TUI to the running server, it sets the host terminal title to `jailoc | <workspace>` via an OSC 0 escape sequence and passes `OPENCODE_DISABLE_TERMINAL_TITLE=1` to the OpenCode TUI process so it does not overwrite the title. On detach the title is cleared.
+
 ## The entrypoint sequence
 
 The entrypoint script is bind-mounted into the container at runtime by jailoc and runs as root. It performs three distinct phases before handing off to the agent process.

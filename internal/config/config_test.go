@@ -1429,6 +1429,8 @@ func TestValidateEnvReservedKeys(t *testing.T) {
 		"DOCKER_TLS_CERTDIR",
 		"DOCKER_CERT_PATH",
 		"DOCKER_TLS_VERIFY",
+		"JAILOC",
+		"JAILOC_WORKSPACE",
 	}
 
 	for _, key := range reserved {

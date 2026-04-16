@@ -198,6 +198,8 @@ Each entry must be in `KEY=VALUE` format (key cannot be empty, must contain `=`)
 | `DOCKER_CERT_PATH` | DinD TLS certs |
 | `DOCKER_TLS_VERIFY` | DinD TLS verification |
 | `SSH_AUTH_SOCK` | SSH agent passthrough |
+| `JAILOC` | jailoc sandbox marker |
+| `JAILOC_WORKSPACE` | workspace identity |
 
 ### `env_file`
 

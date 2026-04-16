@@ -33,6 +33,8 @@ services:
 {{- end}}
     environment:
       - OPENCODE_LOG=debug
+      - JAILOC=1
+      - JAILOC_WORKSPACE={{.WorkspaceName}}
       - OPENCODE_SERVER_PASSWORD={{.OpenCodePassword}}
       - DOCKER_HOST=tcp://dind:2376
       - DOCKER_TLS_CERTDIR=/certs

@@ -35,6 +35,8 @@ func TestGenerateComposeSinglePath(t *testing.T) {
 	assertContains(t, rendered, "- \"4111:4096\"")
 	assertContains(t, rendered, "- /Users/test/work/project:/Users/test/work/project")
 	assertContains(t, rendered, "- OPENCODE_SERVER_PASSWORD=secret")
+	assertContains(t, rendered, "- JAILOC=1")
+	assertContains(t, rendered, "- JAILOC_WORKSPACE=alpha")
 	assertContains(t, rendered, "opencode-data-alpha")
 	assertContains(t, rendered, "opencode-cache-alpha")
 	assertContains(t, rendered, "working_dir: /Users/test/work/project")

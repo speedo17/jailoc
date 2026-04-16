@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -16,6 +17,13 @@ import (
 	"github.com/seznam/jailoc/internal/docker"
 	"github.com/seznam/jailoc/internal/workspace"
 )
+
+// setTerminalTitle writes an OSC 0 escape sequence to w, setting the terminal
+// title to title. An empty title clears it. w is typically os.Stdout, but is
+// taken as a parameter for testability.
+func setTerminalTitle(w io.Writer, title string) {
+	fmt.Fprintf(w, "\033]0;%s\007", title)
+}
 
 func attachHostArgs(serverURL, password, dir string) []string {
 	args := []string{"attach", serverURL}
@@ -42,6 +50,11 @@ func attachOnHost(ctx context.Context, ws *workspace.Resolved, dir string) error
 		return fmt.Errorf("resolve opencode binary: %w", err)
 	}
 
+	if term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // Fd() fits in int on all supported platforms
+		setTerminalTitle(os.Stdout, "jailoc | "+ws.Name)
+		defer setTerminalTitle(os.Stdout, "")
+	}
+
 	serverArg := fmt.Sprintf("http://localhost:%d", ws.Port)
 	password := os.Getenv("OPENCODE_SERVER_PASSWORD")
 	args := attachHostArgs(serverArg, password, dir)
@@ -49,6 +62,7 @@ func attachOnHost(ctx context.Context, ws *workspace.Resolved, dir string) error
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "OPENCODE_DISABLE_TERMINAL_TITLE=1")
 
 	err = runCommandWithContext(ctx, cmd, func() error {
 		if cmd.Process == nil {
@@ -59,7 +73,7 @@ func attachOnHost(ctx context.Context, ws *workspace.Resolved, dir string) error
 	return attachResult(ctx, err)
 }
 
-func attachExec(ctx context.Context, client *docker.Client, dir string) error {
+func attachExec(ctx context.Context, client *docker.Client, workspaceName, dir string) error {
 	fd := int(os.Stdin.Fd()) //nolint:gosec // Fd() fits in int on all supported platforms
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -79,8 +93,13 @@ func attachExec(ctx context.Context, client *docker.Client, dir string) error {
 		close(sigCh)
 	}()
 
+	if term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // Fd() fits in int on all supported platforms
+		setTerminalTitle(os.Stdout, "jailoc | "+workspaceName)
+		defer setTerminalTitle(os.Stdout, "")
+	}
+
 	serverURL := fmt.Sprintf("http://localhost:%d", workspace.BasePort)
-	err = client.Exec(ctx, attachExecArgs(serverURL, dir), os.Stdin, os.Stdout, os.Stderr)
+	err = client.Exec(ctx, attachExecArgs(serverURL, dir), []string{"OPENCODE_DISABLE_TERMINAL_TITLE=1"}, os.Stdin, os.Stdout, os.Stderr)
 	return attachResult(ctx, err)
 }
 
