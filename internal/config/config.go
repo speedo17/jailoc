@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -697,7 +698,21 @@ func AddPath(workspace, path string) error {
 		return fmt.Errorf("patch config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, patched, 0o600); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(configPath), ".config-*.toml.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp config: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }() // no-op after rename succeeds
+
+	_, werr := tmp.Write(patched)
+	serr := tmp.Sync()
+	cerr := tmp.Close()
+	if err := errors.Join(werr, serr, cerr); err != nil {
+		return fmt.Errorf("write temp config: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, configPath); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 
