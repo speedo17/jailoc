@@ -125,11 +125,21 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 		trailing = lines[keyEnd][keyEndCol+1:]
 	}
 
-	newBlock := buildMultiLineArray(key, keyIndent, indent, trailing, values)
+	newBlock := buildMultiLineArray(rawKey, keyIndent, indent, trailing, values)
 
-	// When the file uses CRLF, suffix each generated line with \r so that
+	// Use the line-ending style of the specific region being patched rather
+	// than a global flag, so files with mixed line endings are handled correctly.
+	localCRLF := crlf
+	switch {
+	case keyStart >= 0:
+		localCRLF = strings.HasSuffix(rawLines[keyStart], "\r")
+	case sectionLine >= 0:
+		localCRLF = strings.HasSuffix(rawLines[sectionLine], "\r")
+	}
+
+	// When the region uses CRLF, suffix each generated line with \r so that
 	// joining with \n produces \r\n, matching the surrounding lines.
-	if crlf {
+	if localCRLF {
 		for i, l := range newBlock {
 			newBlock[i] = l + "\r"
 		}
