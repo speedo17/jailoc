@@ -3454,13 +3454,24 @@ func TestAddPathMissingPathsKey(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	// Workspace section exists but has no paths key
+	// Workspace section exists but has no paths key — no indentation.
 	writeFile(t, ConfigPath(), `[workspaces.default]
 image = "alpine:latest"
 `)
 
 	if err := AddPath("default", "/data/mywork"); err != nil {
 		t.Fatalf("AddPath failed: %v", err)
+	}
+
+	result, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	got := string(result)
+
+	// Inserted key must use the same (zero) indentation as the sibling key.
+	if !strings.Contains(got, "paths = [") {
+		t.Errorf("expected flush-left 'paths = ['; result:\n%s", got)
 	}
 
 	cfg, err := LoadFrom(ConfigPath())
@@ -3473,6 +3484,40 @@ image = "alpine:latest"
 	}
 	if got := cfg.Workspaces["default"].Image; got != "alpine:latest" {
 		t.Fatalf("sibling key 'image' was changed: got %q", got)
+	}
+}
+
+func TestAddPathMissingPathsKeyIndented(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Workspace section exists but has no paths key — keys are indented.
+	writeFile(t, ConfigPath(), `[workspaces.default]
+  image = "alpine:latest"
+`)
+
+	if err := AddPath("default", "/data/mywork"); err != nil {
+		t.Fatalf("AddPath failed: %v", err)
+	}
+
+	result, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	got := string(result)
+
+	// Inserted key must match the two-space indent of the sibling key.
+	if !strings.Contains(got, "  paths = [") {
+		t.Errorf("expected 2-space indented 'paths = ['; result:\n%s", got)
+	}
+
+	cfg, err := LoadFrom(ConfigPath())
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	ws := cfg.Workspaces["default"]
+	if len(ws.Paths) != 1 || ws.Paths[0] != "/data/mywork" {
+		t.Fatalf("unexpected paths: %#v", ws.Paths)
 	}
 }
 
@@ -3628,6 +3673,52 @@ func TestAddPathPreservesInlineCommentOnArray(t *testing.T) {
 	}
 	ws := cfg.Workspaces["default"]
 	if len(ws.Paths) != 2 || ws.Paths[0] != "/data/project" || ws.Paths[1] != "/data/new" {
+		t.Fatalf("unexpected paths: %#v", ws.Paths)
+	}
+}
+
+func TestAddPathPreservesCRLF(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Build a config with CRLF line endings.
+	content := "[workspaces.default]\r\npaths = [\r\n  \"/data/first\",\r\n]\r\n"
+	writeFile(t, ConfigPath(), content)
+
+	if err := AddPath("default", "/data/second"); err != nil {
+		t.Fatalf("AddPath failed: %v", err)
+	}
+
+	raw, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	got := string(raw)
+
+	// Every non-empty line must end with \r\n — including newly generated lines.
+	for i, line := range strings.Split(got, "\n") {
+		if line == "" {
+			continue // trailing empty element after the final \n
+		}
+		if !strings.HasSuffix(line, "\r") {
+			t.Errorf("line %d does not end with \\r: %q", i, line)
+		}
+	}
+
+	// Both paths must be present.
+	if !strings.Contains(got, "\"/data/first\",") {
+		t.Errorf("first path missing; result:\n%s", got)
+	}
+	if !strings.Contains(got, "\"/data/second\",") {
+		t.Errorf("second path missing; result:\n%s", got)
+	}
+
+	cfg, err := LoadFrom(ConfigPath())
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	ws := cfg.Workspaces["default"]
+	if len(ws.Paths) != 2 || ws.Paths[0] != "/data/first" || ws.Paths[1] != "/data/second" {
 		t.Fatalf("unexpected paths: %#v", ws.Paths)
 	}
 }

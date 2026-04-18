@@ -15,11 +15,11 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 	// the patched region — including files with mixed line endings.
 	rawLines := strings.Split(string(raw), "\n")
 
-	eol := "\n"
+	crlf := false
 	lines := make([]string, len(rawLines))
 	for i, l := range rawLines {
 		if strings.HasSuffix(l, "\r") {
-			eol = "\r\n"
+			crlf = true
 			lines[i] = l[:len(l)-1]
 		} else {
 			lines[i] = l
@@ -41,6 +41,10 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 		// Detect table headers (single bracket only — skip [[ array-of-tables ]])
 		if strings.HasPrefix(trimmed, "[") && !strings.HasPrefix(trimmed, "[[") {
 			rest := strings.TrimPrefix(trimmed, sectionHeader)
+			// rest is what follows the section header text on the same line.
+			// Empty means an exact match; space/tab/# are the only valid
+			// continuations after a bare table header in TOML (inline comment
+			// or end of meaningful content). Anything else is a different table.
 			if rest == "" || rest[0] == ' ' || rest[0] == '\t' || rest[0] == '#' {
 				inSection = true
 				sectionLine = i
@@ -127,7 +131,7 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 
 	// When the file uses CRLF, suffix each generated line with \r so that
 	// joining with \n produces \r\n, matching the surrounding lines.
-	if eol == "\r\n" {
+	if crlf {
 		for i, l := range newBlock {
 			newBlock[i] = l + "\r"
 		}
@@ -182,7 +186,11 @@ func findArrayEnd(lines []string, startIdx int) (int, int, error) {
 			switch {
 			case inString:
 				if ch == '\\' {
-					j += 2 // skip the escaped character
+					// Skip \ and the immediately following byte. For multi-byte
+					// escapes like \uXXXX the remaining hex digits are processed
+					// individually; they are not bracket, quote, or comment
+					// characters so depth tracking remains correct.
+					j += 2
 					continue
 				}
 				if ch == '"' {
