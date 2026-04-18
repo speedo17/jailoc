@@ -10,7 +10,7 @@ flowchart TB
     direction LR
     subgraph oc["opencode"]
       direction TB
-      oc_uid["UID 1000 (agent)<br>opencode serve<br>127.0.0.1:PORT → 4096"]
+      oc_uid["UID 1000 (agent)<br>opencode serve :4096<br>published to host 127.0.0.1:PORT"]
       oc_mounts["Mounts:<br>paths/* (rw)<br>~/.config/oc (ro)<br>~/.claude/transcripts (rw)<br>/etc/jailoc (ro)"]
     end
     subgraph dind["dind (privileged)"]
