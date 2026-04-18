@@ -35,6 +35,7 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 	keyEndCol := -1   // column of the closing ']' on keyEnd
 
 	inSection := false
+	rawKey := key // original key token from the file; may be quoted ("paths", 'paths')
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -65,6 +66,7 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 		if keyStart == -1 {
 			k, _, _ := strings.Cut(trimmed, "=")
 			if normalizeKey(strings.TrimSpace(k)) == key {
+				rawKey = strings.TrimSpace(k) // preserve quoting style ("paths", 'paths', paths)
 				keyStart = i
 				endLine, endCol, err := findArrayEnd(lines, i)
 				if err != nil {

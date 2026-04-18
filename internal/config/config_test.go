@@ -3736,6 +3736,15 @@ func TestAddPathQuotedKey(t *testing.T) {
 		t.Fatalf("AddPath failed: %v", err)
 	}
 
+	result, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	// Original quoted key style must be preserved, not rewritten as bare 'paths'.
+	if !strings.Contains(string(result), `"paths" = [`) {
+		t.Errorf("quoted key style not preserved; result:\n%s", string(result))
+	}
+
 	cfg, err := LoadFrom(ConfigPath())
 	if err != nil {
 		t.Fatalf("LoadFrom: %v", err)
