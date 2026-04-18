@@ -10,17 +10,21 @@ import (
 // formatting, and surrounding content.  The result is always written as a
 // multi-line array.
 func patchStringArray(raw []byte, workspace, key string, values []string) ([]byte, error) {
-	content := string(raw)
+	// Split on \n, keeping the original bytes in rawLines (each may end with \r).
+	// Strip \r per-line into lines for matching so we never alter bytes outside
+	// the patched region — including files with mixed line endings.
+	rawLines := strings.Split(string(raw), "\n")
 
-	// Normalise CRLF → LF so line splitting and matching work consistently.
-	// The original line ending is restored when rejoining.
 	eol := "\n"
-	if strings.Contains(content, "\r\n") {
-		eol = "\r\n"
-		content = strings.ReplaceAll(content, "\r\n", "\n")
+	lines := make([]string, len(rawLines))
+	for i, l := range rawLines {
+		if strings.HasSuffix(l, "\r") {
+			eol = "\r\n"
+			lines[i] = l[:len(l)-1]
+		} else {
+			lines[i] = l
+		}
 	}
-
-	lines := strings.Split(content, "\n")
 
 	sectionHeader := "[workspaces." + workspace + "]"
 
@@ -74,10 +78,26 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 	}
 
 	// Extract the key line's own leading whitespace so we can preserve it.
+	// If the key is absent, derive indentation from the first sibling key in
+	// the section so that newly inserted keys match the surrounding style.
 	keyIndent := ""
 	if keyStart >= 0 {
 		orig := lines[keyStart]
 		keyIndent = orig[:len(orig)-len(strings.TrimLeft(orig, " \t"))]
+	} else if sectionLine >= 0 {
+		for i := sectionLine + 1; i < len(lines); i++ {
+			l := lines[i]
+			trimmed := strings.TrimSpace(l)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+			// Stop at the next section header
+			if strings.HasPrefix(trimmed, "[") && !strings.HasPrefix(trimmed, "[[") {
+				break
+			}
+			keyIndent = l[:len(l)-len(strings.TrimLeft(l, " \t"))]
+			break
+		}
 	}
 
 	// Detect indentation from existing entries inside a multi-line array so we
@@ -105,6 +125,14 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 
 	newBlock := buildMultiLineArray(key, keyIndent, indent, trailing, values)
 
+	// When the file uses CRLF, suffix each generated line with \r so that
+	// joining with \n produces \r\n, matching the surrounding lines.
+	if eol == "\r\n" {
+		for i, l := range newBlock {
+			newBlock[i] = l + "\r"
+		}
+	}
+
 	var result []string
 	switch {
 	case keyStart == -1 && sectionLine == -1:
@@ -112,18 +140,18 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 
 	case keyStart == -1:
 		// Key absent — insert after the section header line
-		result = append(result, lines[:sectionLine+1]...)
+		result = append(result, rawLines[:sectionLine+1]...)
 		result = append(result, newBlock...)
-		result = append(result, lines[sectionLine+1:]...)
+		result = append(result, rawLines[sectionLine+1:]...)
 
 	default:
 		// Replace the existing key-value block
-		result = append(result, lines[:keyStart]...)
+		result = append(result, rawLines[:keyStart]...)
 		result = append(result, newBlock...)
-		result = append(result, lines[keyEnd+1:]...)
+		result = append(result, rawLines[keyEnd+1:]...)
 	}
 
-	return []byte(strings.Join(result, eol)), nil
+	return []byte(strings.Join(result, "\n")), nil
 }
 
 // findArrayEnd returns the line index and column position of the closing ']'
