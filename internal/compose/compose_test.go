@@ -32,7 +32,7 @@ func TestGenerateComposeSinglePath(t *testing.T) {
 
 	assertContains(t, rendered, "name: jailoc-alpha")
 	assertContains(t, rendered, "image: ghcr.io/seznam/jailoc:test")
-	assertContains(t, rendered, "- \"4111:4096\"")
+	assertContains(t, rendered, "- \"127.0.0.1:4111:4096\"")
 	assertContains(t, rendered, "- /Users/test/work/project:/Users/test/work/project")
 	assertContains(t, rendered, "- OPENCODE_SERVER_PASSWORD=secret")
 	assertContains(t, rendered, "opencode-data-alpha")
@@ -159,7 +159,7 @@ func TestWriteComposeFileHappyPath(t *testing.T) {
 	rendered := string(content)
 	assertContains(t, rendered, "name: jailoc-test-ws")
 	assertContains(t, rendered, "image: ghcr.io/seznam/jailoc:test")
-	assertContains(t, rendered, "- \"4500:4096\"")
+	assertContains(t, rendered, "- \"127.0.0.1:4500:4096\"")
 
 	stat, err := os.Stat(destPath)
 	if err != nil {
