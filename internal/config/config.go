@@ -678,12 +678,9 @@ func AddPath(workspace, path string) error {
 		return fmt.Errorf("read config for AddPath: %w", err)
 	}
 
-	var cfg Config
-	if _, err := toml.Decode(string(raw), &cfg); err != nil {
-		return fmt.Errorf("load config for AddPath: %w", err)
-	}
-	if cfg.Workspaces == nil {
-		cfg.Workspaces = map[string]Workspace{}
+	cfg, err := decode(configPath)
+	if err != nil {
+		return err
 	}
 
 	ws, ok := cfg.Workspaces[workspace]
