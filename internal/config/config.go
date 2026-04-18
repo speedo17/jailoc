@@ -712,7 +712,7 @@ func AddPath(workspace, path string) error {
 		return fmt.Errorf("write temp config: %w", err)
 	}
 
-	if err := os.Rename(tmpPath, configPath); err != nil {
+	if err := os.Rename(tmpPath, configPath); err != nil { //nolint:gosec // tmpPath comes from os.CreateTemp, not user input
 		return fmt.Errorf("write config: %w", err)
 	}
 
