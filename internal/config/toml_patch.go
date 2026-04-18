@@ -7,8 +7,11 @@ import (
 
 // patchStringArray performs a text-level replacement of a TOML string-array
 // value inside the [workspaces.<workspace>] section, preserving all comments,
-// formatting, and surrounding content.  The result is always written as a
-// multi-line array.
+// formatting, and surrounding content outside the array. The result is always
+// written as a multi-line array. Comments and blank lines within the existing
+// array value are not preserved — they are replaced along with the array
+// content. If key is absent from the section it is inserted after the section
+// header.
 func patchStringArray(raw []byte, workspace, key string, values []string) ([]byte, error) {
 	// Split on \n, keeping the original bytes in rawLines (each may end with \r).
 	// Strip \r per-line into lines for matching so we never alter bytes outside
@@ -26,8 +29,6 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 		}
 	}
 
-	sectionHeader := "[workspaces." + workspace + "]"
-
 	sectionLine := -1 // index of the section header line
 	keyStart := -1    // first line of the key = [...] entry
 	keyEnd := -1      // last line of the key = [...] entry (inclusive)
@@ -40,12 +41,7 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 
 		// Detect table headers (single bracket only — skip [[ array-of-tables ]])
 		if strings.HasPrefix(trimmed, "[") && !strings.HasPrefix(trimmed, "[[") {
-			rest := strings.TrimPrefix(trimmed, sectionHeader)
-			// rest is what follows the section header text on the same line.
-			// Empty means an exact match; space/tab/# are the only valid
-			// continuations after a bare table header in TOML (inline comment
-			// or end of meaningful content). Anything else is a different table.
-			if rest == "" || rest[0] == ' ' || rest[0] == '\t' || rest[0] == '#' {
+			if sectionMatches(trimmed, workspace) {
 				inSection = true
 				sectionLine = i
 				continue
@@ -68,7 +64,7 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 		// Check whether this line starts the target key
 		if keyStart == -1 {
 			k, _, _ := strings.Cut(trimmed, "=")
-			if strings.TrimSpace(k) == key {
+			if normalizeKey(strings.TrimSpace(k)) == key {
 				keyStart = i
 				endLine, endCol, err := findArrayEnd(lines, i)
 				if err != nil {
@@ -156,6 +152,42 @@ func patchStringArray(raw []byte, workspace, key string, values []string) ([]byt
 	}
 
 	return []byte(strings.Join(result, "\n")), nil
+}
+
+// sectionMatches reports whether trimmed (a trimmed table-header line) matches
+// [workspaces.<workspace>] in any of its valid TOML forms: bare key, basic-
+// string key ("workspace"), or literal-string key ('workspace'). Space, tab,
+// and # are the only valid continuations after a table header in TOML (inline
+// comment or end of meaningful content).
+func sectionMatches(trimmed, workspace string) bool {
+	candidates := []string{
+		"[workspaces." + workspace + "]",
+		`[workspaces."` + workspace + `"]`,
+		"[workspaces.'" + workspace + "']",
+	}
+	for _, sh := range candidates {
+		rest := strings.TrimPrefix(trimmed, sh)
+		if len(rest) < len(trimmed) && (rest == "" || rest[0] == ' ' || rest[0] == '\t' || rest[0] == '#') {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizeKey strips a single layer of TOML quoting from k so that bare keys,
+// basic-string keys ("paths"), and literal-string keys ('paths') all compare
+// equal to the plain key name. Escape sequences inside basic-string keys are
+// not decoded; for the ASCII keys used in jailoc configs this is safe.
+func normalizeKey(k string) string {
+	if len(k) >= 2 {
+		if k[0] == '"' && k[len(k)-1] == '"' {
+			return k[1 : len(k)-1]
+		}
+		if k[0] == '\'' && k[len(k)-1] == '\'' {
+			return k[1 : len(k)-1]
+		}
+	}
+	return k
 }
 
 // findArrayEnd returns the line index and column position of the closing ']'
