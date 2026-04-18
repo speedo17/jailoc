@@ -88,6 +88,23 @@ Two services per workspace on a shared Docker network:
 - `t.Setenv()` is incompatible with `t.Parallel()` — tests using `t.Setenv` must NOT be parallel
 - `httptest.NewServer` in parallel subtests: use `t.Cleanup(ts.Close)`, NOT `defer ts.Close()` (defer runs before parallel subtests start)
 
+## Development environment
+
+`dev/Dockerfile.jailoc` is a workspace overlay for developing jailoc
+inside a jailoc container. It extends the base image with the Go toolchain, gopls,
+and golangci-lint matching CI.
+
+Add to `~/.config/jailoc/config.toml`:
+
+```toml
+[workspaces.jailoc]
+paths = ["/path/to/jailoc"]
+dockerfile = "https://raw.githubusercontent.com/seznam/jailoc/main/dev/Dockerfile.jailoc"
+```
+
+`jailoc up jailoc` starts a container with Go, gopls, and golangci-lint on PATH.
+Run `go build`, `go test ./...`, and `golangci-lint run` inside as usual.
+
 ## CI/CD
 
 GitHub Actions workflows:
@@ -95,6 +112,17 @@ GitHub Actions workflows:
 - **Release** (`.github/workflows/release-please.yml`): runs on push to master — Release Please opens a Release PR; on merge, creates `v*` tag + GitHub Release, then GoReleaser publishes binaries (Linux/Darwin × amd64/arm64, `CGO_ENABLED=0`)
 - **Re-release** (`.github/workflows/release.yml`): manual `workflow_dispatch` fallback — re-runs GoReleaser for an existing tag
 - **Docs** (`.github/workflows/release-please.yml`): runs as part of the release process — zensical + mkdocs-macros-plugin → GitHub Pages
+
+## Before committing
+
+Run these locally and fix all failures before staging a commit:
+
+```sh
+go build ./...
+go test ./...
+go vet ./...
+golangci-lint run
+```
 
 ## Commits
 
