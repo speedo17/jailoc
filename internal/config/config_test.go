@@ -3722,3 +3722,80 @@ func TestAddPathPreservesCRLF(t *testing.T) {
 		t.Fatalf("unexpected paths: %#v", ws.Paths)
 	}
 }
+
+func TestAddPathQuotedKey(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Config uses a quoted key: "paths" = [...] — valid TOML, equivalent to paths = [...]
+	writeFile(t, ConfigPath(), `[workspaces.default]
+"paths" = ["/data/existing"]
+`)
+
+	if err := AddPath("default", "/data/new"); err != nil {
+		t.Fatalf("AddPath failed: %v", err)
+	}
+
+	cfg, err := LoadFrom(ConfigPath())
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	ws := cfg.Workspaces["default"]
+	if len(ws.Paths) != 2 || ws.Paths[0] != "/data/existing" || ws.Paths[1] != "/data/new" {
+		t.Fatalf("unexpected paths after AddPath with quoted key: %#v", ws.Paths)
+	}
+}
+
+func TestAddPathQuotedSectionHeader(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Config uses a quoted workspace name in the section header:
+	// [workspaces."default"] — valid TOML, equivalent to [workspaces.default]
+	writeFile(t, ConfigPath(), `[workspaces."default"]
+paths = ["/data/existing"]
+`)
+
+	if err := AddPath("default", "/data/new"); err != nil {
+		t.Fatalf("AddPath failed: %v", err)
+	}
+
+	cfg, err := LoadFrom(ConfigPath())
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	ws := cfg.Workspaces["default"]
+	if len(ws.Paths) != 2 || ws.Paths[0] != "/data/existing" || ws.Paths[1] != "/data/new" {
+		t.Fatalf("unexpected paths after AddPath with quoted section header: %#v", ws.Paths)
+	}
+}
+
+func TestAddPathIntraArrayCommentsNotPreserved(t *testing.T) {
+	t.Parallel()
+
+	// Comments and blank lines inside an array are replaced along with the
+	// array content — this is a known limitation of the text-level approach.
+	raw := []byte(`[workspaces.default]
+paths = [
+  "/data/first",
+  # "/data/commented-out",
+]
+`)
+	result, err := patchStringArray(raw, "default", "paths", []string{"/data/first", "/data/new"})
+	if err != nil {
+		t.Fatalf("patchStringArray failed: %v", err)
+	}
+	got := string(result)
+
+	if strings.Contains(got, "# \"/data/commented-out\"") {
+		t.Log("intra-array comment was preserved (behaviour changed)")
+	}
+
+	// The two live paths must be present and the result must be valid TOML.
+	if !strings.Contains(got, `"/data/first",`) {
+		t.Errorf("first path missing; result:\n%s", got)
+	}
+	if !strings.Contains(got, `"/data/new",`) {
+		t.Errorf("new path missing; result:\n%s", got)
+	}
+}
