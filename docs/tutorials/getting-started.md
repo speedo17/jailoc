@@ -30,6 +30,21 @@ jailoc --version
 
 ## Run your first workspace
 
+Before starting a workspace, set a password for the OpenCode server. jailoc passes this to `opencode serve` and refuses to start containers without it.
+
+Generate the password **once** and append its literal value to your shell config (this saves the fixed hex string, not the command itself):
+
+```bash
+echo "export OPENCODE_SERVER_PASSWORD=$(openssl rand -hex 32)" >> ~/.bashrc
+source ~/.bashrc
+```
+
+Replace `.bashrc` with `.zshrc` or your shell's equivalent. Then confirm the variable is set:
+
+```bash
+echo ${#OPENCODE_SERVER_PASSWORD}   # should print 64
+```
+
 The quickest way to get started is to run `jailoc` without any arguments from your project directory:
 
 ```bash

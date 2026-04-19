@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -501,4 +502,56 @@ func TestCheckPortConflict(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRunUp exercises runUp itself for cases that do not require Docker.
+// Uses t.Setenv, so no t.Parallel().
+func TestRunUp(t *testing.T) {
+	t.Run("returns error when OPENCODE_SERVER_PASSWORD is unset", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("OPENCODE_SERVER_PASSWORD", "")
+
+		err := runUp(context.Background(), nil)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "OPENCODE_SERVER_PASSWORD") {
+			t.Fatalf("error %q should contain %q", err.Error(), "OPENCODE_SERVER_PASSWORD")
+		}
+	})
+}
+
+func TestIsRunningPasswordless(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns true when password line is empty", func(t *testing.T) {
+		t.Parallel()
+		f := filepath.Join(t.TempDir(), "docker-compose.yml")
+		content := "    environment:\n      - OPENCODE_SERVER_PASSWORD=\n      - DOCKER_HOST=tcp://dind:2376\n"
+		if err := os.WriteFile(f, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if !isRunningPasswordless(f) {
+			t.Fatal("expected true for empty password line")
+		}
+	})
+
+	t.Run("returns false when password is set", func(t *testing.T) {
+		t.Parallel()
+		f := filepath.Join(t.TempDir(), "docker-compose.yml")
+		content := "    environment:\n      - OPENCODE_SERVER_PASSWORD=hunter2\n      - DOCKER_HOST=tcp://dind:2376\n"
+		if err := os.WriteFile(f, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if isRunningPasswordless(f) {
+			t.Fatal("expected false for set password")
+		}
+	})
+
+	t.Run("returns false when file does not exist", func(t *testing.T) {
+		t.Parallel()
+		if isRunningPasswordless(filepath.Join(t.TempDir(), "docker-compose.yml")) {
+			t.Fatal("expected false for missing file")
+		}
+	})
 }

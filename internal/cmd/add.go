@@ -94,6 +94,21 @@ func maybeRestartWorkspace(ctx context.Context, ws *workspace.Resolved) error {
 		return nil
 	}
 
+	// Guard before any Docker work: if the compose file exists a restart is
+	// possible and a missing password would start opencode unauthenticated.
+	// Placed after the compose-file check so workspaces that have never been
+	// started (no compose file) pass through without requiring the password.
+	// Workspaces that are currently stopped but have a compose file will hit
+	// this guard because it must be evaluated before hitting the Docker daemon
+	// to check the running status.
+	if os.Getenv("OPENCODE_SERVER_PASSWORD") == "" {
+		return fmt.Errorf(
+			"OPENCODE_SERVER_PASSWORD is not set\n" +
+				"set it before starting or restarting a workspace:\n\n" +
+				"  export OPENCODE_SERVER_PASSWORD=$(openssl rand -hex 32)",
+		)
+	}
+
 	client := docker.NewClient(compPath, "", ws.Name)
 
 	running, err := client.IsRunning(ctx)

@@ -285,3 +285,24 @@ memory = "16g"
 ```
 
 Both fields are optional. Workspace values override defaults; when neither is set, the fallback is `2.0` CPU cores and `"4g"` memory. The `memory` field accepts Docker memory format: a positive integer optionally followed by `k`, `m`, or `g` (e.g. `512m`, `4g`, `1024`).
+
+---
+
+## Set a per-workspace password
+
+Use [direnv](https://direnv.net/) to set a unique `OPENCODE_SERVER_PASSWORD` per workspace, so a compromised credential only affects that one workspace.
+
+1. Generate a password and write it to an untracked file in the workspace root:
+
+   ```bash
+   echo "export OPENCODE_SERVER_PASSWORD=$(openssl rand -hex 32)" > .env.local
+   ```
+
+2. Add `.env.local` to `.gitignore`, then load it from `.envrc`:
+
+   ```bash
+   echo "source_env_if_exists .env.local" >> .envrc
+   direnv allow
+   ```
+
+`cd` into the workspace directory before running `jailoc up` or `jailoc` so direnv loads the correct password.

@@ -55,6 +55,16 @@ func runUp(ctx context.Context, args []string) error {
 		return fmt.Errorf("resolve workspace %q: %w", workspaceFlag, err)
 	}
 
+	// Guard before any Docker work: a missing password would start opencode
+	// with no authentication.
+	if os.Getenv("OPENCODE_SERVER_PASSWORD") == "" {
+		return fmt.Errorf(
+			"OPENCODE_SERVER_PASSWORD is not set\n" +
+				"set it before starting a workspace:\n\n" +
+				"  export OPENCODE_SERVER_PASSWORD=$(openssl rand -hex 32)",
+		)
+	}
+
 	_, _ = color.New(color.FgCyan).Printf("Checking Docker availability...\n")
 	if err := preflightDocker(ctx, ws.Name); err != nil {
 		return fmt.Errorf("docker is not running or not accessible: %w", err)
@@ -70,6 +80,18 @@ func runUp(ctx context.Context, args []string) error {
 		running = false
 	}
 	if running {
+		// Warn if the workspace was started without a password (e.g. before
+		// the guard was introduced). Detection reads the cached compose file
+		// and checks whether the password line is empty. Returns false on any
+		// read error so a missing file never produces a spurious warning.
+		if isRunningPasswordless(composePath) {
+			_, _ = color.New(color.FgYellow).Printf(
+				"Warning: workspace %s is running without a password — the OpenCode server is unauthenticated.\n"+
+					"Restart it to secure the connection:\n\n"+
+					"  jailoc down %s && jailoc up %s\n\n",
+				ws.Name, ws.Name, ws.Name,
+			)
+		}
 		_, _ = color.New(color.FgYellow).Printf("Workspace %s is already running on port %d\n", ws.Name, ws.Port)
 		return nil
 	}
@@ -230,6 +252,19 @@ func isComposeFileMissing(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "no such file or directory") ||
 		strings.Contains(msg, "open ") && strings.Contains(msg, "docker-compose.yml")
+}
+
+// isRunningPasswordless reports whether the workspace's cached compose file
+// was generated with an empty OPENCODE_SERVER_PASSWORD. This indicates the
+// workspace was started before the password guard was introduced. Returns
+// false on any read error so a missing or unreadable file never triggers a
+// spurious warning.
+func isRunningPasswordless(composePath string) bool {
+	data, err := os.ReadFile(composePath) //nolint:gosec // path is constructed internally from the workspace cache dir
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), "OPENCODE_SERVER_PASSWORD=\n")
 }
 
 // checkPortConflict returns an error if another running workspace already

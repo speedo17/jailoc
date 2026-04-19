@@ -34,6 +34,8 @@ When run from a subdirectory of a workspace path, jailoc resolves the current wo
 
 When neither `--remote` nor `--exec` is specified, the connection mode is determined by the workspace `mode` field in configuration, falling back to auto-detection (checks for `opencode`, then `opencode-cli` on PATH). See the [access modes how-to](../how-to/access-modes.md) for configuration steps, or the [access modes explanation](../explanation/access-modes.md) for the difference between modes.
 
+*Note: Starting a workspace requires `OPENCODE_SERVER_PASSWORD`. See [`jailoc up`](#jailoc-up) for details.*
+
 ---
 
 ### `jailoc up`
@@ -43,6 +45,14 @@ Start the Docker Compose environment for the target workspace. No-op if the work
 ```
 jailoc up [flags]
 ```
+
+!!! warning "OPENCODE_SERVER_PASSWORD required"
+
+    `jailoc up` requires `OPENCODE_SERVER_PASSWORD` to be set in the environment.
+    An empty password leaves the OpenCode server unauthenticated.
+    See [Getting Started](../tutorials/getting-started.md) for setup instructions.
+
+    If the workspace is already running but was started without a password, `jailoc up` prints a warning with restart instructions.
 
 Resolves the container image (see [Image Resolution](image-resolution.md)), generates a `docker-compose.yml` in `~/.cache/jailoc/{workspace}/`, and starts two containers: `opencode` and `dind`.
 
@@ -115,3 +125,5 @@ jailoc add [flags]
 Appends the current directory to `workspaces.<name>.paths` in `~/.config/jailoc/config.toml`. The path must not be under a forbidden system prefix. See the [configuration reference](configuration.md) for path validation rules.
 
 When `--workspace` is not set, resolves the workspace from the path being added (longest prefix). If `--workspace` is set explicitly and the path is not under any of that workspace's configured paths, `jailoc add` returns an error. See the [workspace configuration how-to](../how-to/workspace-configuration.md) for the full resolution order.
+
+*Note: If the workspace is already running, `jailoc add` restarts it to apply the new mount. This requires `OPENCODE_SERVER_PASSWORD`. See [`jailoc up`](#jailoc-up) for details.*
