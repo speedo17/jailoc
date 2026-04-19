@@ -5,7 +5,7 @@ services:
   opencode:
     image: {{.Image}}
     ports:
-      - "{{.Port}}:4096"
+      - "127.0.0.1:{{.Port}}:4096"
     volumes:
 {{- range .Paths}}
       - {{.}}:{{.}}
