@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/seznam/jailoc/internal/workspace"
@@ -127,13 +126,13 @@ func TestAddComposePath(t *testing.T) {
 // TestMaybeRestartWorkspace exercises maybeRestartWorkspace for cases that do
 // not require Docker. Uses t.Setenv, so no t.Parallel().
 func TestMaybeRestartWorkspace(t *testing.T) {
-	t.Run("returns error when OPENCODE_SERVER_PASSWORD is unset", func(t *testing.T) {
+	t.Run("returns nil without password when workspace is stopped", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		t.Setenv("OPENCODE_SERVER_PASSWORD", "")
 
-		// Create the compose file so the function reaches the password guard
-		// rather than returning nil at the "compose file missing" early exit.
+		// Create the compose file so the function proceeds past the stat check.
+		// IsRunning will fail (no Docker), returning nil before the password guard.
 		ws := &workspace.Resolved{Name: "test"}
 		compDir := ComposeCacheDir(ws.Name)
 		if err := os.MkdirAll(compDir, 0o750); err != nil {
@@ -143,12 +142,10 @@ func TestMaybeRestartWorkspace(t *testing.T) {
 			t.Fatalf("write compose file: %v", err)
 		}
 
+		// No Docker available — IsRunning returns an error, function returns nil.
 		err := maybeRestartWorkspace(context.Background(), ws)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "OPENCODE_SERVER_PASSWORD") {
-			t.Fatalf("error %q should contain %q", err.Error(), "OPENCODE_SERVER_PASSWORD")
+		if err != nil {
+			t.Fatalf("expected nil for stopped workspace, got: %v", err)
 		}
 	})
 }
