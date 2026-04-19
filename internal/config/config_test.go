@@ -3807,4 +3807,9 @@ paths = [
 	if !strings.Contains(got, `"/data/new",`) {
 		t.Errorf("new path missing; result:\n%s", got)
 	}
+
+	var decoded map[string]any
+	if _, err := toml.Decode(got, &decoded); err != nil {
+		t.Fatalf("patched output is not valid TOML: %v\nresult:\n%s", err, got)
+	}
 }
