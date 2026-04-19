@@ -295,13 +295,13 @@ Use [direnv](https://direnv.net/) to set a unique `OPENCODE_SERVER_PASSWORD` per
 1. Generate a password and write it to an untracked file in the workspace root:
 
    ```bash
-   echo "export OPENCODE_SERVER_PASSWORD=$(openssl rand -hex 32)" > .env.local
+   echo "OPENCODE_SERVER_PASSWORD=$(openssl rand -hex 32)" > .env.local
    ```
 
 2. Add `.env.local` to `.gitignore`, then load it from `.envrc`:
 
    ```bash
-   echo "source_env_if_exists .env.local" >> .envrc
+   echo "dotenv_if_exists .env.local" >> .envrc
    direnv allow
    ```
 
