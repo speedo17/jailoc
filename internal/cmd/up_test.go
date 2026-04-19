@@ -536,6 +536,30 @@ func TestIsRunningPasswordless(t *testing.T) {
 		}
 	})
 
+	t.Run("returns true with CRLF line endings", func(t *testing.T) {
+		t.Parallel()
+		f := filepath.Join(t.TempDir(), "docker-compose.yml")
+		content := "    environment:\r\n      - OPENCODE_SERVER_PASSWORD=\r\n      - DOCKER_HOST=tcp://dind:2376\r\n"
+		if err := os.WriteFile(f, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if !isRunningPasswordless(f) {
+			t.Fatal("expected true for empty password line with CRLF")
+		}
+	})
+
+	t.Run("returns true when file has no trailing newline", func(t *testing.T) {
+		t.Parallel()
+		f := filepath.Join(t.TempDir(), "docker-compose.yml")
+		content := "    environment:\n      - OPENCODE_SERVER_PASSWORD="
+		if err := os.WriteFile(f, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if !isRunningPasswordless(f) {
+			t.Fatal("expected true for empty password line without trailing newline")
+		}
+	})
+
 	t.Run("returns false when password is set", func(t *testing.T) {
 		t.Parallel()
 		f := filepath.Join(t.TempDir(), "docker-compose.yml")

@@ -264,7 +264,12 @@ func isRunningPasswordless(composePath string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(data), "OPENCODE_SERVER_PASSWORD=\n")
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasSuffix(strings.TrimRight(line, "\r"), "OPENCODE_SERVER_PASSWORD=") {
+			return true
+		}
+	}
+	return false
 }
 
 // checkPortConflict returns an error if another running workspace already

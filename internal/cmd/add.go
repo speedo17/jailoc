@@ -91,7 +91,10 @@ func isDuplicate(paths []string, target string) bool {
 func maybeRestartWorkspace(ctx context.Context, ws *workspace.Resolved) error {
 	compPath := filepath.Join(ComposeCacheDir(ws.Name), "docker-compose.yml")
 	if _, err := os.Stat(compPath); err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat compose file: %w", err)
 	}
 
 	// Guard before any Docker work: if the compose file exists a restart is
