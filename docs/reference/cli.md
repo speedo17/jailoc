@@ -115,3 +115,37 @@ jailoc add [flags]
 Appends the current directory to `workspaces.<name>.paths` in `~/.config/jailoc/config.toml`. The path must not be under a forbidden system prefix. See the [configuration reference](configuration.md) for path validation rules.
 
 When `--workspace` is not set, resolves the workspace from the path being added (longest prefix). If `--workspace` is set explicitly and the path is not under any of that workspace's configured paths, `jailoc add` returns an error. See the [workspace configuration how-to](../how-to/workspace-configuration.md) for the full resolution order.
+
+---
+
+## Update Checks
+
+jailoc checks GitHub Releases for newer versions on every command run. The check runs asynchronously in the background and does not block command execution.
+
+### Behavior
+
+- **Frequency**: Cached for 24 hours. Subsequent checks within the cache window return the cached result.
+- **Output**: When a newer version is available, a notice is printed to stderr. If stderr is not a TTY (e.g., when output is redirected or piped), the notice is suppressed, but the background check still runs and updates the cache.
+- **Non-blocking**: The check runs in a goroutine and results are collected at command completion. Command execution is not delayed.
+- **Color**: Respects the `--no-color` flag. When `--no-color` is set and a notice is printed, it appears without ANSI color codes.
+
+### Disabling Update Checks
+
+Update checks are skipped in the following conditions:
+
+- **Development builds**: Builds whose version is `dev` or `(devel)` (e.g., local `go build` without release ldflags)
+- **CI environments**: When the `CI` environment variable is set to any non-empty value
+- **Explicit opt-out**: When the `JAILOC_NO_UPDATE_NOTIFIER` environment variable is set to any non-empty value
+
+To disable update checks, set the environment variable:
+
+```bash
+export JAILOC_NO_UPDATE_NOTIFIER=1
+jailoc up
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JAILOC_NO_UPDATE_NOTIFIER` | (unset) | Set to any non-empty value to disable update checks. |

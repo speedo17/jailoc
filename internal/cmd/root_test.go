@@ -140,3 +140,20 @@ func assertContains(t *testing.T, s, substr string) {
 		t.Errorf("expected %q to contain %q", s, substr)
 	}
 }
+
+func TestExecuteUpdateCheck(t *testing.T) {
+	// Suppress update check side effects. t.Setenv is incompatible with t.Parallel(),
+	// so this test cannot be parallel.
+	t.Setenv("JAILOC_NO_UPDATE_NOTIFIER", "1")
+
+	// Drive Cobra down a controlled, side-effect-free path.
+	rootCmd.SetArgs([]string{"--help"})
+	t.Cleanup(func() { rootCmd.SetArgs(nil) })
+
+	// Call Execute() with "dev" version (which also gates the update check).
+	// This is a smoke test to verify the update check wiring in Execute() doesn't panic.
+	err := Execute("dev", "test-commit", "test-date")
+	if err != nil {
+		t.Fatalf("Execute returned unexpected error: %v", err)
+	}
+}

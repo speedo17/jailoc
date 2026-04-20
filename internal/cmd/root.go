@@ -17,6 +17,7 @@ import (
 	"github.com/seznam/jailoc/internal/config"
 	"github.com/seznam/jailoc/internal/docker"
 	"github.com/seznam/jailoc/internal/password"
+	"github.com/seznam/jailoc/internal/update"
 	"github.com/seznam/jailoc/internal/workspace"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -286,6 +287,26 @@ func Execute(version, commit, date string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	rootCmd.SetContext(ctx)
+
+	// Fire non-blocking update check only when stderr is a terminal —
+	// skip the HTTP call entirely in non-interactive environments.
+	var updateResult <-chan *update.Result
+	if term.IsTerminal(int(os.Stderr.Fd())) { //nolint:gosec // Fd() fits int on all supported 64-bit platforms
+		updateResult = update.CheckAsync(ctx, version)
+	}
+	defer func() {
+		if updateResult == nil {
+			return
+		}
+		// Non-blocking read: if result not ready (fast command), skip gracefully.
+		select {
+		case res := <-updateResult:
+			if res != nil {
+				fmt.Fprint(os.Stderr, update.FormatNotice(res.Current, res.Latest))
+			}
+		default:
+		}
+	}()
 
 	return rootCmd.Execute()
 }
