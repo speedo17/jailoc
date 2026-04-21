@@ -241,7 +241,7 @@ func TestRestartLifecycle(t *testing.T) {
 	}
 
 	home := testHome(t)
-	if err := writeMinimalConfig(home, t.TempDir()); err != nil {
+	if err := writeMinimalConfig(home, testWorkspaceDir(t)); err != nil {
 		t.Fatalf("write minimal config: %v", err)
 	}
 
