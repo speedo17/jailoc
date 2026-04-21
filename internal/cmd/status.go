@@ -115,6 +115,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			_, _ = color.New(color.FgCyan).Printf("Status:    ")
 			_, _ = color.New(color.FgGreen).Printf("running\n")
 		}
+
+		stats, statsErr := client.ContainerStats(ctx)
+		if statsErr == nil {
+			printContainerStats(stats)
+		} else {
+			_, _ = color.New(color.FgCyan).Printf("Stats:     ")
+			_, _ = color.New(color.FgYellow).Printf("unavailable (%v)\n", statsErr)
+		}
 	case "exited":
 		_, _ = color.New(color.FgCyan).Printf("Status:    ")
 		_, _ = color.New(color.FgRed).Printf("exited (code %d)\n", exitCode)
@@ -124,6 +132,37 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func printContainerStats(s docker.ContainerStats) {
+	label := color.New(color.FgCyan)
+	value := color.New(color.FgWhite)
+
+	_, _ = label.Printf("CPU:       ")
+	if s.CPULimit > 0 {
+		_, _ = value.Printf("%.1f%% (limit: %.1f cores)\n", s.CPUPercent, s.CPULimit)
+	} else {
+		_, _ = value.Printf("%.1f%%\n", s.CPUPercent)
+	}
+
+	_, _ = label.Printf("Memory:    ")
+	_, _ = value.Printf("%s / %s (%.1f%%)\n", docker.FormatBytes(s.MemUsage), docker.FormatBytes(s.MemLimit), s.MemPercent)
+
+	_, _ = label.Printf("PIDs:      ")
+	if s.PIDsLimit > 0 {
+		_, _ = value.Printf("%d / %d\n", s.PIDsCurrent, s.PIDsLimit)
+	} else {
+		_, _ = value.Printf("%d / unlimited\n", s.PIDsCurrent)
+	}
+
+	_, _ = label.Printf("Net I/O:   ")
+	_, _ = value.Printf("%s rx / %s tx\n", docker.FormatBytes(s.NetRx), docker.FormatBytes(s.NetTx))
+
+	_, _ = label.Printf("Block I/O: ")
+	_, _ = value.Printf("%s read / %s write\n", docker.FormatBytes(s.BlockRead), docker.FormatBytes(s.BlockWrite))
+
+	_, _ = label.Printf("Uptime:    ")
+	_, _ = value.Printf("%s\n", docker.FormatUptime(s.Uptime))
 }
 
 func init() {
