@@ -36,6 +36,7 @@ const (
 # allowed_networks = ["10.0.0.0/8"]
 # ssh_auth_sock = false
 # git_config = true
+# expose_port = true
 # cpu = 2.0
 # memory = "4g"
 
@@ -51,6 +52,7 @@ paths = []
 # dockerfile = ""
 # ssh_auth_sock = false
 # git_config = true
+# expose_port = true
 # cpu = 2.0
 # memory = "4g"
 `
@@ -167,6 +169,7 @@ type Defaults struct {
 	GitConfig       *bool    `toml:"git_config"`
 	CPU             *float64 `toml:"cpu"`
 	Memory          *string  `toml:"memory"`
+	ExposePort      *bool    `toml:"expose_port"`
 }
 
 type Workspace struct {
@@ -183,6 +186,7 @@ type Workspace struct {
 	GitConfig       *bool    `toml:"git_config"`
 	CPU             *float64 `toml:"cpu"`
 	Memory          *string  `toml:"memory"`
+	ExposePort      *bool    `toml:"expose_port"`
 }
 
 func ConfigDir() string {

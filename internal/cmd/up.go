@@ -98,16 +98,22 @@ func runUp(ctx context.Context, args []string) error {
 			return fmt.Errorf("password migration declined for workspace %q", ws.Name)
 		}
 	} else if running {
-		_, _ = color.New(color.FgYellow).Printf("Workspace %s is already running on port %d\n", ws.Name, ws.Port)
+		if ws.ExposePort {
+			_, _ = color.New(color.FgYellow).Printf("Workspace %s is already running on port %d\n", ws.Name, ws.Port)
+		} else {
+			_, _ = color.New(color.FgYellow).Printf("Workspace %s is already running (exec-only, port not exposed)\n", ws.Name)
+		}
 		return nil
 	}
 
-	runningPorts, err := docker.RunningWorkspacePorts(ctx)
-	if err != nil {
-		return fmt.Errorf("check running workspace ports: %w", err)
-	}
-	if err := checkPortConflict(runningPorts, ws.Name, ws.Port); err != nil {
-		return err
+	if ws.ExposePort {
+		runningPorts, err := docker.RunningWorkspacePorts(ctx)
+		if err != nil {
+			return fmt.Errorf("check running workspace ports: %w", err)
+		}
+		if err := checkPortConflict(runningPorts, ws.Name, ws.Port); err != nil {
+			return err
+		}
 	}
 
 	_, _ = color.New(color.FgCyan).Printf("Resolving image for workspace %s...\n", ws.Name)
@@ -156,6 +162,7 @@ func runUp(ctx context.Context, args []string) error {
 		Memory:           ws.Memory,
 		UseDataVolume:    !compose.MountsContainTarget(ws.Mounts, "/home/agent/.local/share/opencode"),
 		UseCacheVolume:   !compose.MountsContainTarget(ws.Mounts, "/home/agent/.cache"),
+		ExposePort:       ws.ExposePort,
 	}
 
 	_, _ = color.New(color.FgCyan).Printf("Generating compose configuration...\n")
@@ -169,7 +176,11 @@ func runUp(ctx context.Context, args []string) error {
 		return fmt.Errorf("start workspace %q: %w", ws.Name, err)
 	}
 
-	_, _ = color.New(color.FgGreen).Printf("Workspace %s started on port %d\n", ws.Name, ws.Port)
+	if ws.ExposePort {
+		_, _ = color.New(color.FgGreen).Printf("Workspace %s started on port %d\n", ws.Name, ws.Port)
+	} else {
+		_, _ = color.New(color.FgGreen).Printf("Workspace %s started (exec-only, port not exposed)\n", ws.Name)
+	}
 	return nil
 }
 
