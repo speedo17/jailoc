@@ -330,11 +330,8 @@ func validateEnvFiles(paths []string, context string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", context, err)
 		}
-		for _, entry := range entries {
-			key, _, _ := strings.Cut(entry, "=")
-			if reservedEnvKeys[key] {
-				return fmt.Errorf("%s: env_file %q: key %q is reserved and cannot be overridden", context, p, key)
-			}
+		if err := validateEnvEntries(entries, fmt.Sprintf("%s: env_file %q", context, p)); err != nil {
+			return err
 		}
 	}
 	return nil

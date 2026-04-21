@@ -1429,6 +1429,7 @@ func TestValidateEnvReservedKeys(t *testing.T) {
 		"DOCKER_TLS_CERTDIR",
 		"DOCKER_CERT_PATH",
 		"DOCKER_TLS_VERIFY",
+		"SSH_AUTH_SOCK",
 	}
 
 	for _, key := range reserved {
