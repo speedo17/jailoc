@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -17,10 +18,16 @@ var downCmd = &cobra.Command{
 	Use:   "down [workspace]",
 	Short: "Stop a workspace environment",
 	Args:  cobra.MaximumNArgs(1),
-	RunE:  runDown,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runDownCtx(cmd.Context(), args)
+	},
 }
 
-func runDown(cmd *cobra.Command, args []string) error {
+func runDownCtx(ctx context.Context, args []string) error {
+	return runDownCtxForce(ctx, args, false)
+}
+
+func runDownCtxForce(ctx context.Context, args []string, force bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -59,11 +66,13 @@ func runDown(cmd *cobra.Command, args []string) error {
 	}
 
 	client := docker.NewClient(composePath, "", ws.Name)
-	ctx := cmd.Context()
-	running, err := client.IsRunning(ctx)
-	if err != nil || !running {
-		_, _ = color.New(color.FgYellow).Printf("Workspace %s is not running\n", ws.Name)
-		return nil
+
+	if !force {
+		running, err := client.IsRunning(ctx)
+		if err != nil || !running {
+			_, _ = color.New(color.FgYellow).Printf("Workspace %s is not running\n", ws.Name)
+			return nil
+		}
 	}
 
 	_, _ = color.New(color.FgCyan).Printf("Stopping workspace %s...\n", ws.Name)

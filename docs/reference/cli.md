@@ -64,6 +64,20 @@ When `--workspace` is not set, resolves the workspace whose configured path best
 
 ---
 
+### `jailoc restart`
+
+Stop and restart the Docker Compose environment for a workspace.
+
+```
+jailoc restart [flags]
+```
+
+Equivalent to `jailoc down` followed by `jailoc up`. Regenerates the compose configuration from the current `config.toml` before bringing the workspace back up. If the workspace is not running, starts it without error.
+
+When `--workspace` is not set, resolves the workspace whose configured path best matches the current working directory (longest prefix). Falls back to `default`. See the [workspace configuration how-to](../how-to/workspace-configuration.md) for the full resolution order.
+
+---
+
 ### `jailoc status`
 
 Print the state and assigned port for each configured workspace.
