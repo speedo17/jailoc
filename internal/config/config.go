@@ -324,7 +324,10 @@ func validateEnvFiles(paths []string, context string) error {
 			return fmt.Errorf("%s: env_file path %q must be absolute (start with /)", context, p)
 		}
 		if _, err := os.Stat(p); err != nil {
-			return fmt.Errorf("%s: env_file %q does not exist", context, p)
+			if os.IsNotExist(err) {
+				return fmt.Errorf("%s: env_file %q does not exist", context, p)
+			}
+			return fmt.Errorf("%s: env_file %q: %w", context, p, err)
 		}
 		entries, err := ParseEnvFile(p)
 		if err != nil {
