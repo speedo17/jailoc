@@ -12,7 +12,7 @@ var restartCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
-		if err := runDownCtx(ctx, args); err != nil {
+		if err := runDownCtxForce(ctx, args, true); err != nil {
 			return err
 		}
 

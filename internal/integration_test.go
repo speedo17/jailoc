@@ -270,6 +270,29 @@ func TestRestartLifecycle(t *testing.T) {
 	if downErr != nil {
 		t.Fatalf("run jailoc down: %v\noutput:\n%s", downErr, downOut)
 	}
+
+	// Restart from stopped state — covers "if not running, starts it" behavior.
+	restartOut, restartErr = runJailoc(ctx, home, "restart")
+	if restartErr != nil {
+		if isImagePullOrAuthFailure(restartOut) {
+			t.Skip("requires accessible image registry")
+		}
+		t.Fatalf("run jailoc restart from stopped state: %v\noutput:\n%s", restartErr, restartOut)
+	}
+
+	statusOut, statusErr = runJailoc(ctx, home, "status")
+	if statusErr != nil {
+		t.Fatalf("run jailoc status after restart from stopped state: %v\noutput:\n%s", statusErr, statusOut)
+	}
+	statusLower = strings.ToLower(statusOut)
+	if strings.Contains(statusLower, "not running") || !strings.Contains(statusLower, "running") {
+		t.Errorf("expected running status after restart from stopped state, got output:\n%s", statusOut)
+	}
+
+	downOut, downErr = runJailoc(ctx, home, "down")
+	if downErr != nil {
+		t.Fatalf("run jailoc down after cold restart: %v\noutput:\n%s", downErr, downOut)
+	}
 }
 
 func TestEnvVarsReachContainer(t *testing.T) {

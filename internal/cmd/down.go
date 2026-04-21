@@ -24,6 +24,10 @@ var downCmd = &cobra.Command{
 }
 
 func runDownCtx(ctx context.Context, args []string) error {
+	return runDownCtxForce(ctx, args, false)
+}
+
+func runDownCtxForce(ctx context.Context, args []string, force bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -62,10 +66,13 @@ func runDownCtx(ctx context.Context, args []string) error {
 	}
 
 	client := docker.NewClient(composePath, "", ws.Name)
-	running, err := client.IsRunning(ctx)
-	if err != nil || !running {
-		_, _ = color.New(color.FgYellow).Printf("Workspace %s is not running\n", ws.Name)
-		return nil
+
+	if !force {
+		running, err := client.IsRunning(ctx)
+		if err != nil || !running {
+			_, _ = color.New(color.FgYellow).Printf("Workspace %s is not running\n", ws.Name)
+			return nil
+		}
 	}
 
 	_, _ = color.New(color.FgCyan).Printf("Stopping workspace %s...\n", ws.Name)
