@@ -261,7 +261,8 @@ func TestRestartLifecycle(t *testing.T) {
 	if statusErr != nil {
 		t.Fatalf("run jailoc status after restart: %v\noutput:\n%s", statusErr, statusOut)
 	}
-	if !strings.Contains(strings.ToLower(statusOut), "running") {
+	statusLower := strings.ToLower(statusOut)
+	if strings.Contains(statusLower, "not running") || !strings.Contains(statusLower, "running") {
 		t.Errorf("expected running status after restart, got output:\n%s", statusOut)
 	}
 
