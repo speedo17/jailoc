@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -524,5 +525,68 @@ func TestCheckPortConflict(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestWriteTUIConfig(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	if err := writeTUIConfig(tmpDir); err != nil {
+		t.Fatalf("writeTUIConfig failed: %v", err)
+	}
+
+	readPluginSpec := func(path string) string {
+		t.Helper()
+		data, err := os.ReadFile(path) //nolint:gosec // test path
+		if err != nil {
+			t.Fatalf("os.ReadFile(%q) failed: %v", path, err)
+		}
+		var config map[string][]string
+		if err := json.Unmarshal(data, &config); err != nil {
+			t.Fatalf("json.Unmarshal(%q) failed: %v", path, err)
+		}
+		plugins, ok := config["plugin"]
+		if !ok {
+			t.Fatalf("%s missing 'plugin' key", path)
+		}
+		if len(plugins) != 1 {
+			t.Fatalf("%s: expected 1 plugin, got %d", path, len(plugins))
+		}
+		return plugins[0]
+	}
+
+	wantHost := "file://" + filepath.Join(tmpDir, "tui-plugin")
+	if got := readPluginSpec(filepath.Join(tmpDir, "tui.json")); got != wantHost {
+		t.Fatalf("host tui.json plugin = %q, want %q", got, wantHost)
+	}
+
+	wantContainer := "file:///etc/jailoc-tui-plugin"
+	if got := readPluginSpec(filepath.Join(tmpDir, "tui-container.json")); got != wantContainer {
+		t.Fatalf("container tui.json plugin = %q, want %q", got, wantContainer)
+	}
+
+	pkgJSON, err := os.ReadFile(filepath.Join(tmpDir, "tui-plugin", "package.json")) //nolint:gosec // test path
+	if err != nil {
+		t.Fatalf("reading tui-plugin/package.json: %v", err)
+	}
+	if !bytes.Equal(pkgJSON, embed.TUIPluginJSON()) {
+		t.Fatalf("package.json content mismatch")
+	}
+	var pkg map[string]any
+	if err := json.Unmarshal(pkgJSON, &pkg); err != nil {
+		t.Fatalf("json.Unmarshal(package.json) failed: %v", err)
+	}
+	if got, ok := pkg["type"].(string); !ok || got != "module" {
+		t.Fatalf("package.json type = %v, want %q", pkg["type"], "module")
+	}
+
+	tuiJS, err := os.ReadFile(filepath.Join(tmpDir, "tui-plugin", "tui.js")) //nolint:gosec // test path
+	if err != nil {
+		t.Fatalf("reading tui-plugin/tui.js: %v", err)
+	}
+	if !bytes.Equal(tuiJS, embed.TUIPluginJS()) {
+		t.Fatalf("tui.js content mismatch")
 	}
 }

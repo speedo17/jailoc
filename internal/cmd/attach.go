@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -37,6 +39,75 @@ func attachExecArgs(serverURL, dir string) []string {
 	return args
 }
 
+// hostTUIConfigEnv returns OPENCODE_TUI_CONFIG env var entries for host attach
+// when jailoc's generated tui.json should be used as a fallback. It does not
+// override an explicit env var, and it does not point OpenCode at a missing
+// generated config file.
+func hostTUIConfigEnv(configPath string) []string {
+	if os.Getenv("OPENCODE_TUI_CONFIG") != "" {
+		return nil
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		return nil
+	}
+
+	ocDir, err := openCodeConfigDir()
+	if err != nil {
+		return nil
+	}
+	userTUI := filepath.Join(ocDir, "tui.json")
+	if _, err := os.Stat(userTUI); err == nil {
+		return nil // user has their own tui.json — don't override
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil // unreadable or other filesystem error — don't override
+	}
+	return []string{"OPENCODE_TUI_CONFIG=" + configPath}
+}
+
+// openCodeConfigDir returns the directory OpenCode uses for its config:
+// $XDG_CONFIG_HOME/opencode if set, otherwise $HOME/.config/opencode.
+// This matches OpenCode's own resolution regardless of platform (os.UserConfigDir
+// returns ~/Library/Application Support on macOS, which OpenCode does not use).
+func openCodeConfigDir() (string, error) {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "opencode"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config", "opencode"), nil
+}
+
+func execTUIConfigEnv(configPath string) []string {
+	return []string{"OPENCODE_TUI_CONFIG=" + configPath}
+}
+
+func envWithOverrides(base []string, overrides ...string) []string {
+	if len(overrides) == 0 {
+		return append([]string{}, base...)
+	}
+
+	overrideKeys := make(map[string]struct{}, len(overrides))
+	for _, entry := range overrides {
+		if key, _, ok := strings.Cut(entry, "="); ok && key != "" {
+			overrideKeys[key] = struct{}{}
+		}
+	}
+
+	filtered := make([]string, 0, len(base)+len(overrides))
+	for _, entry := range base {
+		if key, _, ok := strings.Cut(entry, "="); ok {
+			if _, exists := overrideKeys[key]; exists {
+				continue
+			}
+		}
+		filtered = append(filtered, entry)
+	}
+
+	return append(filtered, overrides...)
+}
+
 func attachOnHost(ctx context.Context, ws *workspace.Resolved, dir string, passwordMode string) error {
 	binary, err := config.ResolveBinary()
 	if err != nil {
@@ -55,6 +126,15 @@ func attachOnHost(ctx context.Context, ws *workspace.Resolved, dir string, passw
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	tuiPath := filepath.Join(jailocCacheDir(), "tui.json")
+	cmd.Env = envWithOverrides(os.Environ(),
+		"JAILOC=1",
+		"JAILOC_WORKSPACE="+ws.Name,
+	)
+	if env := hostTUIConfigEnv(tuiPath); len(env) > 0 {
+		cmd.Env = envWithOverrides(cmd.Env, env...)
+	}
 
 	err = runCommandWithContext(ctx, cmd, func() error {
 		if cmd.Process == nil {
@@ -86,7 +166,7 @@ func attachExec(ctx context.Context, client *docker.Client, dir string) error {
 	}()
 
 	serverURL := fmt.Sprintf("http://localhost:%d", workspace.BasePort)
-	err = client.Exec(ctx, attachExecArgs(serverURL, dir), os.Stdin, os.Stdout, os.Stderr)
+	err = client.Exec(ctx, attachExecArgs(serverURL, dir), execTUIConfigEnv("/etc/jailoc-tui.json"), os.Stdin, os.Stdout, os.Stderr)
 	return attachResult(ctx, err)
 }
 

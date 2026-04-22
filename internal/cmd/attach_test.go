@@ -3,7 +3,10 @@ package cmd
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"testing"
@@ -98,15 +101,7 @@ func TestAttachExecArgs(t *testing.T) {
 }
 
 func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return reflect.DeepEqual(a, b)
 }
 
 func TestMonitorAttach(t *testing.T) {
@@ -315,4 +310,144 @@ func assertNotCanceled(t *testing.T, ctx context.Context, wait time.Duration) {
 		t.Fatalf("context was canceled unexpectedly: %v", context.Cause(ctx))
 	case <-time.After(wait):
 	}
+}
+
+func TestHostTUIConfigEnv(t *testing.T) {
+	tests := []struct {
+		name         string
+		createConfig bool
+		createUser   bool
+		existingEnv  string
+		wantEnv      bool
+	}{
+		{
+			name:         "returns env when generated config exists and user tui json does not",
+			createConfig: true,
+			createUser:   false,
+			wantEnv:      true,
+		},
+		{
+			name:         "returns nil when user tui json exists",
+			createConfig: true,
+			createUser:   true,
+			wantEnv:      false,
+		},
+		{
+			name:         "returns nil when generated config does not exist",
+			createConfig: false,
+			createUser:   false,
+			wantEnv:      false,
+		},
+		{
+			name:         "returns nil when env already set",
+			createConfig: true,
+			createUser:   false,
+			existingEnv:  "/custom/tui.json",
+			wantEnv:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			t.Setenv("XDG_CONFIG_HOME", tmp)
+			t.Setenv("HOME", tmp)
+
+			configPath := filepath.Join(tmp, "generated", "tui.json")
+
+			if tt.createConfig {
+				if err := os.MkdirAll(filepath.Dir(configPath), 0o750); err != nil {
+					t.Fatalf("create config dir: %v", err)
+				}
+				if err := os.WriteFile(configPath, []byte("{}"), 0o600); err != nil {
+					t.Fatalf("create generated tui.json: %v", err)
+				}
+			}
+
+			if tt.createUser {
+				ocDir, err := openCodeConfigDir()
+				if err != nil {
+					t.Fatalf("opencode config dir: %v", err)
+				}
+				userTUI := filepath.Join(ocDir, "tui.json")
+				if err := os.MkdirAll(filepath.Dir(userTUI), 0o750); err != nil {
+					t.Fatalf("create dir: %v", err)
+				}
+				if err := os.WriteFile(userTUI, []byte("{}"), 0o600); err != nil {
+					t.Fatalf("create tui.json: %v", err)
+				}
+			}
+
+			if tt.existingEnv != "" {
+				t.Setenv("OPENCODE_TUI_CONFIG", tt.existingEnv)
+			}
+
+			got := hostTUIConfigEnv(configPath)
+			var want []string
+			if tt.wantEnv {
+				want = []string{"OPENCODE_TUI_CONFIG=" + configPath}
+			}
+			if !slicesEqual(got, want) {
+				t.Errorf("hostTUIConfigEnv(%q) = %v, want %v", configPath, got, want)
+			}
+		})
+	}
+}
+
+func TestExecTUIConfigEnv(t *testing.T) {
+	t.Setenv("OPENCODE_TUI_CONFIG", "/host/custom.json")
+
+	got := execTUIConfigEnv("/etc/jailoc-tui.json")
+	want := []string{"OPENCODE_TUI_CONFIG=/etc/jailoc-tui.json"}
+	if !slicesEqual(got, want) {
+		t.Fatalf("execTUIConfigEnv() = %v, want %v", got, want)
+	}
+}
+
+func TestEnvWithOverrides(t *testing.T) {
+	t.Parallel()
+
+	base := []string{
+		"PATH=/usr/bin",
+		"JAILOC=old",
+		"JAILOC_WORKSPACE=stale",
+		"OTHER=value",
+	}
+
+	got := envWithOverrides(
+		base,
+		"JAILOC=1",
+		"JAILOC_WORKSPACE=default",
+		"OPENCODE_TUI_CONFIG=/tmp/tui.json",
+	)
+
+	want := []string{
+		"PATH=/usr/bin",
+		"OTHER=value",
+		"JAILOC=1",
+		"JAILOC_WORKSPACE=default",
+		"OPENCODE_TUI_CONFIG=/tmp/tui.json",
+	}
+
+	if !slicesEqual(got, want) {
+		t.Fatalf("envWithOverrides() = %v, want %v", got, want)
+	}
+
+	if countEnvKey(got, "JAILOC") != 1 {
+		t.Fatalf("expected one JAILOC entry, got %v", got)
+	}
+	if countEnvKey(got, "JAILOC_WORKSPACE") != 1 {
+		t.Fatalf("expected one JAILOC_WORKSPACE entry, got %v", got)
+	}
+}
+
+func countEnvKey(env []string, key string) int {
+	count := 0
+	for _, entry := range env {
+		entryKey, _, ok := strings.Cut(entry, "=")
+		if ok && entryKey == key {
+			count++
+		}
+	}
+	return count
 }

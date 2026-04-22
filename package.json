@@ -1,0 +1,22 @@
+{
+  "name": "@seznam/jailoc",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./tui": "./dist/tui.js"
+  },
+  "scripts": {
+    "build": "node ./plugin/build.mjs",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
+    "babel-preset-solid": "^1.9.10"
+  },
+  "peerDependencies": {
+    "solid-js": "*",
+    "@opentui/solid": "*"
+  },
+  "oc-plugin": ["tui"]
+}

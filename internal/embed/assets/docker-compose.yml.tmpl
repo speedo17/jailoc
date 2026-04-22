@@ -23,6 +23,8 @@ services:
 {{- end}}
       - ${HOME}/.config/jailoc/workspaces/{{.WorkspaceName}}:/etc/jailoc:ro
       - ${HOME}/.cache/jailoc/{{.WorkspaceName}}/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - ${HOME}/.cache/jailoc/tui-container.json:/etc/jailoc-tui.json:ro
+      - ${HOME}/.cache/jailoc/tui-plugin:/etc/jailoc-tui-plugin:ro
       - dind-certs-client:/certs/client:ro
 {{- if .SSHAuthSock}}
       - {{.SSHAuthSock}}:/run/ssh-agent.sock
@@ -40,6 +42,8 @@ services:
       - DOCKER_TLS_CERTDIR=/certs
       - DOCKER_CERT_PATH=/certs/client
       - DOCKER_TLS_VERIFY=1
+      - JAILOC=1
+      - JAILOC_WORKSPACE={{.WorkspaceName}}
 {{- if .SSHAuthSock}}
       - SSH_AUTH_SOCK=/run/ssh-agent.sock
 {{- end}}

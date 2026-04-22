@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -139,6 +140,10 @@ func runUp(ctx context.Context, args []string) error {
 		return err
 	}
 
+	if err := writeTUIConfig(jailocCacheDir()); err != nil {
+		return err
+	}
+
 	pw, _, err := resolver.Resolve(ws.Name)
 	if err != nil {
 		return err
@@ -206,11 +211,15 @@ func preflightDocker(ctx context.Context, workspaceName string) error {
 }
 
 func ComposeCacheDir(workspace string) string {
+	return filepath.Join(jailocCacheDir(), workspace) + string(filepath.Separator)
+}
+
+func jailocCacheDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), "jailoc", workspace) + string(filepath.Separator)
+		return filepath.Join(os.TempDir(), "jailoc")
 	}
-	return filepath.Join(home, ".cache", "jailoc", workspace) + string(filepath.Separator)
+	return filepath.Join(home, ".cache", "jailoc")
 }
 
 type imageStrategy int
@@ -324,6 +333,84 @@ func writeDindEntrypoint(cacheDir string) error {
 	}
 	if err := os.Chmod(p, 0o755); err != nil { //nolint:gosec // ensure +x even when file already existed
 		return fmt.Errorf("chmod dind entrypoint: %w", err)
+	}
+	return nil
+}
+
+const tuiPluginContainerDir = "/etc/jailoc-tui-plugin"
+
+func writeTUIConfig(baseDir string) error {
+	if err := writeTUIPlugin(baseDir); err != nil {
+		return err
+	}
+
+	// Host-side tui.json: opencode attach on the host reads this file, so the
+	// plugin path must resolve on the host filesystem. Shared across all
+	// workspaces — the plugin payload is identical and workspace identity
+	// comes from JAILOC_WORKSPACE at runtime.
+	hostPluginDir := filepath.Join(baseDir, "tui-plugin")
+	if err := writeTUIJSON(filepath.Join(baseDir, "tui.json"), "file://"+hostPluginDir); err != nil {
+		return err
+	}
+
+	// Container-side tui.json: mounted into the container where the plugin
+	// directory is bind-mounted at /etc/jailoc-tui-plugin.
+	if err := writeTUIJSON(filepath.Join(baseDir, "tui-container.json"), "file://"+tuiPluginContainerDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeTUIJSON(path, specifier string) error {
+	config := map[string][]string{
+		"plugin": {specifier},
+	}
+
+	data, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("write tui config: %w", err)
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tui-*.json")
+	if err != nil {
+		return fmt.Errorf("write tui config: %w", err)
+	}
+	tmpName := filepath.Clean(tmp.Name())
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName) //nolint:gosec // tmpName is from os.CreateTemp in a controlled directory
+		return fmt.Errorf("write tui config: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName) //nolint:gosec // tmpName is from os.CreateTemp in a controlled directory
+		return fmt.Errorf("write tui config: %w", err)
+	}
+
+	if err := os.Chmod(tmpName, 0o644); err != nil { //nolint:gosec // 0o644 is appropriate for non-executable JSON config file
+		_ = os.Remove(tmpName) //nolint:gosec // tmpName is from os.CreateTemp in a controlled directory
+		return fmt.Errorf("write tui config: %w", err)
+	}
+
+	if err := os.Rename(tmpName, path); err != nil { //nolint:gosec // both paths are controlled: tmpName from CreateTemp, path from caller
+		_ = os.Remove(tmpName) //nolint:gosec // tmpName is from os.CreateTemp in a controlled directory
+		return fmt.Errorf("write tui config: %w", err)
+	}
+
+	return nil
+}
+
+func writeTUIPlugin(baseDir string) error {
+	dir := filepath.Join(baseDir, "tui-plugin")
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // 0o755 required: bind-mount preserves host perms, dir must be readable in container
+		return fmt.Errorf("create tui plugin dir: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), embed.TUIPluginJSON(), 0o644); err != nil { //nolint:gosec // 0o644 is appropriate for non-executable JSON
+		return fmt.Errorf("write tui plugin package.json: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tui.js"), embed.TUIPluginJS(), 0o644); err != nil { //nolint:gosec // 0o644 is appropriate for non-executable JS
+		return fmt.Errorf("write tui plugin tui.js: %w", err)
 	}
 	return nil
 }
