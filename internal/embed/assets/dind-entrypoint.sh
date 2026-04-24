@@ -1,20 +1,23 @@
 #!/bin/sh
 set -eu
 
-# Network isolation for the DinD sidecar.
+# Network isolation for the rootless DinD sidecar.
 #
-# Without these rules, an agent in the opencode container can bypass all
-# iptables restrictions by creating a container inside DinD with unrestricted
-# network access.
+# The entrypoint runs as root to install iptables rules, then drops to
+# UID 1000 via su-exec and execs the rootless Docker daemon.
 #
-# Rules go into the DOCKER-USER chain — the official Docker extension point
-# for user firewall rules. Docker evaluates DOCKER-USER before its own
-# FORWARD rules, so our DROPs fire first regardless of Docker version.
-# We pre-create the chain; dockerd will add the FORWARD → DOCKER-USER jump.
+# Only the JAILOC-OUTPUT chain on the OUTPUT chain is used. The DOCKER-USER
+# chain (Docker's FORWARD extension point) does not apply to rootless mode
+# because rootlesskit routes inner container traffic through vpnkit, which
+# exits via the outer network namespace's OUTPUT chain. This means all
+# traffic — from the DinD container itself and from any inner containers —
+# passes through JAILOC-OUTPUT.
 #
-# FORWARD rules use the default-route interface so only traffic leaving DinD
-# toward the compose network (and beyond) is filtered. Inter-container traffic
-# on Docker bridge interfaces (docker0, br-*) is unaffected.
+# After iptables setup, su-exec switches to UID 1000. The kernel clears
+# inheritable, permitted, effective, and ambient capabilities on the UID
+# transition. The bounding set stays full but is unexploitable — no binary
+# in the image can grant CAP_NET_ADMIN to UID 1000. --no-new-privs is not
+# set because rootlesskit needs setuid newuidmap/newgidmap.
 
 # --- Detect working iptables variant ---
 if iptables -L -n >/dev/null 2>&1; then
@@ -30,28 +33,25 @@ else
   fi
 fi
 
-# --- DOCKER-USER chain: restrict inner containers ---
+# --- JAILOC-OUTPUT chain: restrict all egress (DinD + inner containers) ---
 
-DEFAULT_IF=$(ip route show default | awk '{print $5}' | head -1)
-if [ -z "$DEFAULT_IF" ]; then
-  echo "jailoc-dind: FATAL: no default route interface found" >&2
-  exit 1
-fi
+$IPT -N JAILOC-OUTPUT 2>/dev/null || true
+$IPT -F JAILOC-OUTPUT
+$IPT -C OUTPUT -j JAILOC-OUTPUT 2>/dev/null || $IPT -I OUTPUT -j JAILOC-OUTPUT
 
-$IPT -N DOCKER-USER 2>/dev/null || true
-$IPT -F DOCKER-USER
+$IPT -A JAILOC-OUTPUT -o lo -j ACCEPT
+$IPT -A JAILOC-OUTPUT -o docker0 -j ACCEPT
+$IPT -A JAILOC-OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-$IPT -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
-
-# Allow DNS only to configured resolvers (from compose dns: entries in
-# /etc/resolv.conf), not to arbitrary destinations on port 53.
+# Allow DNS to configured resolvers (public DNS is permitted by the default
+# ACCEPT policy; private-network DROPs below block internal resolvers).
 DNS_RESOLVERS=$(
   awk '$1 == "nameserver" && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { print $2 }' \
     /etc/resolv.conf | sort -u
 )
 for DNS_IP in $DNS_RESOLVERS; do
-  $IPT -A DOCKER-USER -o "$DEFAULT_IF" -p udp -d "$DNS_IP" --dport 53 -j RETURN
-  $IPT -A DOCKER-USER -o "$DEFAULT_IF" -p tcp -d "$DNS_IP" --dport 53 -j RETURN
+  $IPT -A JAILOC-OUTPUT -p udp -d "$DNS_IP" --dport 53 -j ACCEPT
+  $IPT -A JAILOC-OUTPUT -p tcp -d "$DNS_IP" --dport 53 -j ACCEPT
 done
 
 ALLOWED_HOSTS="/etc/jailoc/allowed-hosts"
@@ -64,7 +64,7 @@ if [ -f "$ALLOWED_HOSTS" ]; then
     RESOLVED=$(getent hosts "$line" 2>/dev/null | awk '{print $1}' | grep -E '^[0-9]+\.' || true)
     if [ -n "$RESOLVED" ]; then
       for IP in $RESOLVED; do
-        $IPT -A DOCKER-USER -o "$DEFAULT_IF" -d "$IP" -j RETURN
+        $IPT -A JAILOC-OUTPUT -d "$IP" -j ACCEPT
       done
     fi
   done < "$ALLOWED_HOSTS"
@@ -77,46 +77,49 @@ if [ -f "$ALLOWED_NETWORKS" ]; then
     line="$(echo "$line" | tr -d ' ')"
     [ -z "$line" ] && continue
 
-    $IPT -A DOCKER-USER -o "$DEFAULT_IF" -d "$line" -j RETURN
+    $IPT -A JAILOC-OUTPUT -d "$line" -j ACCEPT
   done < "$ALLOWED_NETWORKS"
 fi
 
-# Block inner containers from reaching private/internal networks.
-$IPT -A DOCKER-USER -o "$DEFAULT_IF" -d 10.0.0.0/8 -j DROP
-$IPT -A DOCKER-USER -o "$DEFAULT_IF" -d 172.16.0.0/12 -j DROP
-$IPT -A DOCKER-USER -o "$DEFAULT_IF" -d 192.168.0.0/16 -j DROP
-$IPT -A DOCKER-USER -o "$DEFAULT_IF" -d 169.254.0.0/16 -j DROP
-$IPT -A DOCKER-USER -o "$DEFAULT_IF" -d 100.64.0.0/10 -j DROP
-
-$IPT -A DOCKER-USER -j RETURN
-
-# --- OUTPUT chain: restrict DinD's own traffic ---
-
-$IPT -N JAILOC-OUTPUT 2>/dev/null || true
-$IPT -F JAILOC-OUTPUT
-$IPT -C OUTPUT -j JAILOC-OUTPUT 2>/dev/null || $IPT -I OUTPUT -j JAILOC-OUTPUT
-
-$IPT -A JAILOC-OUTPUT -o lo -j ACCEPT
-$IPT -A JAILOC-OUTPUT -o docker0 -j ACCEPT
-$IPT -A JAILOC-OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-
-for DNS_IP in $DNS_RESOLVERS; do
-  $IPT -A JAILOC-OUTPUT -p udp -d "$DNS_IP" --dport 53 -j ACCEPT
-  $IPT -A JAILOC-OUTPUT -p tcp -d "$DNS_IP" --dport 53 -j ACCEPT
-done
-
+# Block private/internal networks.
 $IPT -A JAILOC-OUTPUT -d 10.0.0.0/8 -j DROP
 $IPT -A JAILOC-OUTPUT -d 172.16.0.0/12 -j DROP
 $IPT -A JAILOC-OUTPUT -d 192.168.0.0/16 -j DROP
 $IPT -A JAILOC-OUTPUT -d 169.254.0.0/16 -j DROP
 $IPT -A JAILOC-OUTPUT -d 100.64.0.0/10 -j DROP
 
+# --- Prepare rootless data directories ---
+# The rootless Docker daemon stores data under the rootless user's home.
+# Named volumes are created as root by Docker; fix ownership before dropping.
+ROOTLESS_HOME="/home/rootless"
+mkdir -p "$ROOTLESS_HOME/.local/share/docker" "$ROOTLESS_HOME/.config/docker"
+if [ "$(stat -c '%u' "$ROOTLESS_HOME/.local/share/docker" 2>/dev/null)" != "1000" ] || \
+   [ "$(stat -c '%u' "$ROOTLESS_HOME/.config/docker" 2>/dev/null)" != "1000" ]; then
+  chown -R 1000:1000 "$ROOTLESS_HOME/.local/share/docker" "$ROOTLESS_HOME/.config/docker"
+fi
+# TLS cert volumes are created as root; the upstream dockerd-entrypoint.sh
+# generates certs and needs write access as UID 1000.
+for d in /certs/ca /certs/client; do
+  if [ -d "$d" ] && [ "$(stat -c '%u' "$d" 2>/dev/null)" != "1000" ]; then
+    chown -R 1000:1000 "$d"
+  fi
+done
+
 # --- Clean stale containerd state ---
 # Prevents "containerd is still running" crash loop when PID file persists
 # on volume from prior unclean shutdown.
 # See: https://github.com/moby/moby/blob/v28.1.1/cmd/dockerd/daemon.go#L146-L160
-rm -f /var/lib/docker/containerd/containerd.pid \
-      /var/lib/docker/containerd/containerd.sock \
-      /var/lib/docker/containerd/containerd-debug.sock
+rm -f "$ROOTLESS_HOME/.local/share/docker/containerd/containerd.pid" \
+      "$ROOTLESS_HOME/.local/share/docker/containerd/containerd.sock" \
+      "$ROOTLESS_HOME/.local/share/docker/containerd/containerd-debug.sock"
 
-exec dockerd-entrypoint.sh "$@"
+# --- Drop privileges and exec rootless dockerd ---
+# su-exec switches to UID 1000 (rootless) in a single exec. The kernel
+# automatically clears inheritable, permitted, effective, and ambient
+# capability sets on the UID transition. The bounding set remains full but
+# is unexploitable: the only setuid binary in the image (fusermount3) has
+# no file capabilities, so UID 1000 cannot regain CAP_NET_ADMIN to modify
+# iptables rules. --no-new-privs is not set because rootlesskit needs
+# setuid newuidmap/newgidmap for user namespace setup.
+apk add --no-cache su-exec >/dev/null 2>&1 || true
+exec su-exec rootless env HOME="$ROOTLESS_HOME" dockerd-entrypoint.sh "$@"
