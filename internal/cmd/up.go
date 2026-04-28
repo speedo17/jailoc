@@ -21,6 +21,8 @@ import (
 	"golang.org/x/term"
 )
 
+const ocConfigContainerPath = "/home/agent/.config/opencode"
+
 var upCmd = &cobra.Command{
 	Use:   "up [workspace]",
 	Short: "Start a workspace environment",
@@ -114,6 +116,15 @@ func runUp(ctx context.Context, args []string) error {
 		}
 		if err := checkPortConflict(runningPorts, ws.Name, ws.Port); err != nil {
 			return err
+		}
+	}
+
+	if hostPath, ok := compose.ReadOnlyMountCoversPath(ws.Mounts, ocConfigContainerPath); ok {
+		if err := ensureOCConfigGitignore(hostPath); err != nil {
+			_, _ = color.New(color.FgYellow).Fprintf(os.Stderr,
+				"WARNING: could not pre-create .gitignore in %s: %v\n"+
+					"OpenCode (shipped since jailoc 1.13) may fail to start — see https://github.com/anomalyco/opencode/issues/23040\n",
+				hostPath, err)
 		}
 	}
 
@@ -420,6 +431,35 @@ func writeTUIPlugin(baseDir string) error {
 
 // dockerDesktopSSHSock is the magic socket path used by Docker Desktop and OrbStack.
 const dockerDesktopSSHSock = "/run/host-services/ssh-auth.sock"
+
+// ocConfigGitignore is the .gitignore content that OpenCode (v1.14.22+, shipped
+// since jailoc 1.13) expects in its config directory. Without it, OpenCode
+// crashes with EROFS on read-only filesystems.
+// See: https://github.com/anomalyco/opencode/issues/23040
+const ocConfigGitignore = `node_modules
+package.json
+package-lock.json
+bun.lock
+.gitignore
+`
+
+func ensureOCConfigGitignore(hostDir string) error {
+	gitignorePath := filepath.Join(hostDir, ".gitignore")
+	_, err := os.Stat(gitignorePath)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat %q: %w", gitignorePath, err)
+	}
+	if err := os.MkdirAll(hostDir, 0o755); err != nil { //nolint:gosec // 0o755: directory must be readable when bind-mounted
+		return fmt.Errorf("create directory %q: %w", hostDir, err)
+	}
+	if err := os.WriteFile(gitignorePath, []byte(ocConfigGitignore), 0o644); err != nil { //nolint:gosec // 0o644: standard file perms
+		return fmt.Errorf("write %q: %w", gitignorePath, err)
+	}
+	return nil
+}
 
 var osStat = os.Stat
 
