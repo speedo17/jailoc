@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.14.0](https://github.com/speedo17/jailoc/compare/v1.13.1...v1.14.0) (2026-04-29)
+
+
+### Features
+
+* **config:** add enable_docker option to opt out of DinD sidecar ([#147](https://github.com/speedo17/jailoc/issues/147)) ([e523e2e](https://github.com/speedo17/jailoc/commit/e523e2efd20eee2d0744a369323319bc2095f671))
+* **dind:** switch to rootless Docker daemon for iptables tamper resistance ([#143](https://github.com/speedo17/jailoc/issues/143)) ([6248c53](https://github.com/speedo17/jailoc/commit/6248c5399b45425fee18a34b4e3cf05c02185f0b))
+
+
+### Bug Fixes
+
+* **entrypoint:** pre-create OpenCode config .gitignore to prevent EROFS crash ([#148](https://github.com/speedo17/jailoc/issues/148)) ([ce08080](https://github.com/speedo17/jailoc/commit/ce08080e56acd042584148cb2989ecff086ff5a6))
+* **release:** enable force-tag-creation for draft releases ([#125](https://github.com/speedo17/jailoc/issues/125)) ([37a2469](https://github.com/speedo17/jailoc/commit/37a2469e4735d5630113ca41e78b5f0298738468))
+
+
+### Documentation
+
+* **network:** document HTTP proxy allowlisting for private networks ([#146](https://github.com/speedo17/jailoc/issues/146)) ([6671a6c](https://github.com/speedo17/jailoc/commit/6671a6c43c17420debd3ab540819523df577471a))
+
 ## [1.13.1](https://github.com/seznam/jailoc/compare/v1.13.0...v1.13.1) (2026-04-28)
 
 
