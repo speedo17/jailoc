@@ -98,6 +98,18 @@ func execTUIConfigEnv(configPath string) []string {
 	return []string{"OPENCODE_TUI_CONFIG=" + configPath}
 }
 
+// terminalEnv returns host terminal environment variables (TERM, COLORTERM)
+// that should be forwarded to the container exec session for proper color support.
+func terminalEnv() []string {
+	var env []string
+	for _, key := range []string{"TERM", "COLORTERM"} {
+		if v := os.Getenv(key); v != "" {
+			env = append(env, key+"="+v)
+		}
+	}
+	return env
+}
+
 func envWithOverrides(base []string, overrides ...string) []string {
 	if len(overrides) == 0 {
 		return append([]string{}, base...)
@@ -361,7 +373,8 @@ func attachExec(ctx context.Context, client *docker.Client, dir string, session 
 
 	serverURL := fmt.Sprintf("http://localhost:%d", workspace.BasePort)
 	rw := &exitRewriter{w: os.Stdout}
-	err = client.ExecInteractive(ctx, containerID, attachExecArgs(serverURL, dir, session, cont), execTUIConfigEnv("/etc/jailoc-tui.json"), os.Stdin, rw, resizeCh)
+	execEnv := append(execTUIConfigEnv("/etc/jailoc-tui.json"), terminalEnv()...)
+	err = client.ExecInteractive(ctx, containerID, attachExecArgs(serverURL, dir, session, cont), execEnv, os.Stdin, rw, resizeCh)
 	if ferr := rw.Flush(); ferr != nil && err == nil {
 		err = fmt.Errorf("flush exit rewriter: %w", ferr)
 	}
