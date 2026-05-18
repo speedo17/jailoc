@@ -285,6 +285,14 @@ func attachOnHost(ctx context.Context, ws *workspace.Resolved, dir string, passw
 }
 
 func attachExec(ctx context.Context, client *docker.Client, dir string, session string, cont bool) error {
+	containerID, err := client.CurrentContainerID(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve opencode container for exec: %w", err)
+	}
+	if containerID == "" {
+		return fmt.Errorf("workspace is not running; run 'jailoc up' first")
+	}
+
 	fd := int(os.Stdin.Fd()) //nolint:gosec // Fd() fits in int on all supported platforms
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
@@ -292,9 +300,68 @@ func attachExec(ctx context.Context, client *docker.Client, dir string, session 
 	}
 	defer func() { _ = term.Restore(fd, oldState) }()
 
+	resizeCh := make(chan docker.TerminalSize, 1)
+	defer close(resizeCh)
+
+	if w, h, sizeErr := term.GetSize(fd); sizeErr == nil {
+		resizeCh <- docker.TerminalSize{Width: uint(w), Height: uint(h)}
+	}
+
+	done := make(chan struct{})
+	if sigWinch != nil {
+		sigCh := make(chan os.Signal, 1)
+		sigDone := make(chan struct{})
+		signal.Notify(sigCh, sigWinch)
+		go func() {
+			defer close(sigDone)
+			for {
+				select {
+				case <-sigCh:
+					if w, h, err := term.GetSize(fd); err == nil {
+						resizeCh <- docker.TerminalSize{Width: uint(w), Height: uint(h)}
+					}
+				case <-ctx.Done():
+					return
+				case <-done:
+					return
+				}
+			}
+		}()
+		defer func() {
+			signal.Stop(sigCh)
+			close(done)
+			<-sigDone
+		}()
+	} else if term.IsTerminal(fd) {
+		pollDone := make(chan struct{})
+		go func() {
+			defer close(pollDone)
+			var lastW, lastH int
+			ticker := time.NewTicker(resizePollInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					if w, h, err := term.GetSize(fd); err == nil && (w != lastW || h != lastH) {
+						resizeCh <- docker.TerminalSize{Width: uint(w), Height: uint(h)}
+						lastW, lastH = w, h
+					}
+				case <-ctx.Done():
+					return
+				case <-done:
+					return
+				}
+			}
+		}()
+		defer func() {
+			close(done)
+			<-pollDone
+		}()
+	}
+
 	serverURL := fmt.Sprintf("http://localhost:%d", workspace.BasePort)
 	rw := &exitRewriter{w: os.Stdout}
-	err = client.Exec(ctx, attachExecArgs(serverURL, dir, session, cont), execTUIConfigEnv("/etc/jailoc-tui.json"), os.Stdin, rw, os.Stderr)
+	err = client.ExecInteractive(ctx, containerID, attachExecArgs(serverURL, dir, session, cont), execTUIConfigEnv("/etc/jailoc-tui.json"), os.Stdin, rw, resizeCh)
 	if ferr := rw.Flush(); ferr != nil && err == nil {
 		err = fmt.Errorf("flush exit rewriter: %w", ferr)
 	}
