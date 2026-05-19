@@ -102,7 +102,7 @@ func execTUIConfigEnv(configPath string) []string {
 // that should be forwarded to the container exec session for proper color support.
 func terminalEnv() []string {
 	var env []string
-	for _, key := range []string{"TERM", "COLORTERM", "CLICOLOR_FORCE", "TERM_PROGRAM", "COLORFGBG"} {
+	for _, key := range []string{"TERM", "COLORTERM", "CLICOLOR_FORCE", "TERM_PROGRAM", "COLORFGBG", "LANG"} {
 		if v := os.Getenv(key); v != "" {
 			env = append(env, key+"="+v)
 		}
@@ -114,6 +114,12 @@ func terminalEnv() []string {
 	// foreground/background color detection (which timeout through Docker exec PTY).
 	if os.Getenv("COLORFGBG") == "" {
 		env = append(env, "COLORFGBG=15;0")
+	}
+	// Ensure UTF-8 locale reaches the container so TUI box-drawing characters
+	// and icons render correctly (macOS Terminal.app sets LANG on the host but
+	// Docker exec doesn't inherit it without explicit forwarding).
+	if os.Getenv("LANG") == "" {
+		env = append(env, "LANG=C.UTF-8")
 	}
 	return env
 }
