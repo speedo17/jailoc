@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.16.0](https://github.com/speedo17/jailoc/compare/v1.15.0...v1.16.0) (2026-05-21)
+
+
+### Features
+
+* **cmd:** add session continuation and rewrite exit title ([#154](https://github.com/speedo17/jailoc/issues/154)) ([66059e3](https://github.com/speedo17/jailoc/commit/66059e38f28408a5b4ad9a22b77926ce5257d9c5))
+* **config:** add enable_docker option to opt out of DinD sidecar ([#147](https://github.com/speedo17/jailoc/issues/147)) ([e523e2e](https://github.com/speedo17/jailoc/commit/e523e2efd20eee2d0744a369323319bc2095f671))
+* **dind:** switch to rootless Docker daemon for iptables tamper resistance ([#143](https://github.com/speedo17/jailoc/issues/143)) ([6248c53](https://github.com/speedo17/jailoc/commit/6248c5399b45425fee18a34b4e3cf05c02185f0b))
+* **logging:** add always-on debug file logging ([#172](https://github.com/speedo17/jailoc/issues/172)) ([d407654](https://github.com/speedo17/jailoc/commit/d4076543b9375cccb6cd2268be58cc647a655ac5))
+
+
+### Bug Fixes
+
+* **cmd:** enable Windows cross-compilation with PTY fallback ([#161](https://github.com/speedo17/jailoc/issues/161)) ([e90baf5](https://github.com/speedo17/jailoc/commit/e90baf5040cf62080001317f547de1ff6d484ec7))
+* **cmd:** replace creack/pty with go-pty for cross-platform PTY support ([#166](https://github.com/speedo17/jailoc/issues/166)) ([5ad0cc1](https://github.com/speedo17/jailoc/commit/5ad0cc18a29f3074b9525a12ec21649133ee66c9))
+* **config:** mount OpenCode config directories read-write ([#156](https://github.com/speedo17/jailoc/issues/156)) ([178f857](https://github.com/speedo17/jailoc/commit/178f8574adb60eddfefc83931404ea589f71a65e))
+* **config:** use filepath.IsAbs for cross-platform path validation ([#165](https://github.com/speedo17/jailoc/issues/165)) ([6baf43e](https://github.com/speedo17/jailoc/commit/6baf43e0c60343733cad589f3689c61f37777178))
+* **docker:** clarify overlay build status message ([#162](https://github.com/speedo17/jailoc/issues/162)) ([f0aa418](https://github.com/speedo17/jailoc/commit/f0aa41809b81e17e2ca1281caadf5d0f3613211a))
+* **entrypoint:** pre-create OpenCode config .gitignore to prevent EROFS crash ([#148](https://github.com/speedo17/jailoc/issues/148)) ([ce08080](https://github.com/speedo17/jailoc/commit/ce08080e56acd042584148cb2989ecff086ff5a6))
+* **release:** enable force-tag-creation for draft releases ([#125](https://github.com/speedo17/jailoc/issues/125)) ([37a2469](https://github.com/speedo17/jailoc/commit/37a2469e4735d5630113ca41e78b5f0298738468))
+
+
+### Documentation
+
+* **how-to:** add troubleshooting page ([#174](https://github.com/speedo17/jailoc/issues/174)) ([948d93e](https://github.com/speedo17/jailoc/commit/948d93e6b303802956629e99aa73154271f47fab))
+* **network:** document HTTP proxy allowlisting for private networks ([#146](https://github.com/speedo17/jailoc/issues/146)) ([6671a6c](https://github.com/speedo17/jailoc/commit/6671a6c43c17420debd3ab540819523df577471a))
+
 ## [1.15.0](https://github.com/seznam/jailoc/compare/v1.14.0...v1.15.0) (2026-05-21)
 
 
