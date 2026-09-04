@@ -93,7 +93,7 @@ Unit tests live beside their source files as `*_test.go`. Integration tests live
 
 ## Developing inside a jailoc container
 
-`dev/Dockerfile.jailoc` is a workspace overlay that extends the default image with the Go toolchain, gopls, and golangci-lint. It lets you develop jailoc inside a jailoc container.
+`dev/Dockerfile.jailoc` is a workspace overlay that extends the default image with the Go toolchain, gopls, golangci-lint, and the CodeGraph CLI. It lets you develop jailoc inside a jailoc container.
 
 Add to `~/.config/jailoc/config.toml`:
 

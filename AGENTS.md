@@ -102,7 +102,7 @@ cp dist/tui.js internal/embed/assets/tui.js
 
 `dev/Dockerfile.jailoc` is a workspace overlay for developing jailoc
 inside a jailoc container. It extends the base image with the Go toolchain, gopls,
-and golangci-lint matching CI.
+golangci-lint matching CI, and the CodeGraph CLI.
 
 Add to `~/.config/jailoc/config.toml`:
 
@@ -112,8 +112,9 @@ paths = ["/path/to/jailoc"]
 dockerfile = "https://raw.githubusercontent.com/seznam/jailoc/main/dev/Dockerfile.jailoc"
 ```
 
-`jailoc up jailoc` starts a container with Go, gopls, and golangci-lint on PATH.
-Run `go build`, `go test ./...`, and `golangci-lint run` inside as usual.
+`jailoc up jailoc` starts a container with Go, gopls, golangci-lint, and
+`codegraph` on PATH. Run `go build`, `go test ./...`, and `golangci-lint run`
+inside as usual.
 
 ## CI/CD
 
