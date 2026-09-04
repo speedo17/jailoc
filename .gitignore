@@ -15,3 +15,9 @@ node_modules/
 dist/
 *.tgz
 vendor/
+tmp/
+.codegraph/
+# local operator config — holds an internal endpoint and model names
+opencode.json
+*.swp
+.*.swp
