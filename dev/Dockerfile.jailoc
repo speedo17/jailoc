@@ -1,5 +1,6 @@
 # Workspace overlay image for developing jailoc inside a jailoc container.
-# Extends the jailoc base image with the Go toolchain, gopls, and golangci-lint.
+# Extends the jailoc base image with the Go toolchain, gopls, golangci-lint, and
+# the CodeGraph CLI.
 #
 # Usage — add to ~/.config/jailoc/config.toml:
 #
@@ -34,3 +35,31 @@ RUN set -eux; \
     curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION#v}-linux-${ARCH}.tar.gz" \
     | tar -xzC /usr/local/bin --strip-components=1 \
       "golangci-lint-${GOLANGCI_LINT_VERSION#v}-linux-${ARCH}/golangci-lint"
+
+# CodeGraph — local code-intelligence MCP server. The MCP wiring lives in the
+# operator's OpenCode config on the host (codegraph serve --mcp, stdio), not in
+# this repo; this layer only puts the binary on PATH. Indexing and queries are
+# local — the only outbound calls are usage telemetry and a daily update check,
+# both disabled below.
+# Pinned to 1.1.6: 0.7.10 shipped no native better-sqlite3 and fell back to the
+# slow WASM backend, hitting the pre-0.9 "database is locked" bug (empty graph).
+# renovate: datasource=npm depName=@colbymchenry/codegraph
+ARG CODEGRAPH_VERSION=1.1.6
+
+# Set before the install so even the build-time invocation is opted out.
+# DO_NOT_TRACK is the cross-tool standard and covers both the anonymous usage
+# telemetry and the background GitHub update check; CODEGRAPH_TELEMETRY=0 alone
+# would leave the update check making a daily outbound request. The dedicated
+# CODEGRAPH_NO_UPDATE_CHECK is set too, so the opt-out survives upstream
+# dropping DO_NOT_TRACK support.
+# Note the scope: ENV persists into every container started from this image, so
+# DO_NOT_TRACK silences telemetry for any other DO_NOT_TRACK-aware tool added to
+# this overlay later. That is intentional — this is a sandboxed dev image whose
+# threat model treats egress as the risk (docs/explanation/threat-model.md).
+# https://github.com/colbymchenry/codegraph/blob/main/TELEMETRY.md
+ENV DO_NOT_TRACK=1 \
+    CODEGRAPH_TELEMETRY=0 \
+    CODEGRAPH_NO_UPDATE_CHECK=1
+
+RUN npm install -g "@colbymchenry/codegraph@${CODEGRAPH_VERSION}" \
+    && codegraph --version
