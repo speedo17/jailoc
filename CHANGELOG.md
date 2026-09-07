@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.15.1](https://github.com/speedo17/jailoc/compare/v1.18.0...v1.15.1) (2026-09-07)
+
+
+### Features
+
+* **cmd:** add session continuation and rewrite exit title ([#154](https://github.com/speedo17/jailoc/issues/154)) ([66059e3](https://github.com/speedo17/jailoc/commit/66059e38f28408a5b4ad9a22b77926ce5257d9c5))
+* config-defined docker-compose secrets ([#215](https://github.com/speedo17/jailoc/issues/215)) ([3f1d6df](https://github.com/speedo17/jailoc/commit/3f1d6df97de94b510058458d3239bf9d2b2b4898))
+* **config:** add enable_docker option to opt out of DinD sidecar ([#147](https://github.com/speedo17/jailoc/issues/147)) ([e523e2e](https://github.com/speedo17/jailoc/commit/e523e2efd20eee2d0744a369323319bc2095f671))
+* **dind:** switch to rootless Docker daemon for iptables tamper resistance ([#143](https://github.com/speedo17/jailoc/issues/143)) ([6248c53](https://github.com/speedo17/jailoc/commit/6248c5399b45425fee18a34b4e3cf05c02185f0b))
+* **embed:** bump tool versions, drop renovate ([#208](https://github.com/speedo17/jailoc/issues/208)) ([926e6a4](https://github.com/speedo17/jailoc/commit/926e6a444342b54d4a40bf7b96d36d9cd4ee6b4f))
+* **embed:** upgrade pinned tool versions ([#188](https://github.com/speedo17/jailoc/issues/188)) ([6be8ff8](https://github.com/speedo17/jailoc/commit/6be8ff8be991025b962c1ec54a9437de7d1c3a6c))
+* **logging:** add always-on debug file logging ([#172](https://github.com/speedo17/jailoc/issues/172)) ([d407654](https://github.com/speedo17/jailoc/commit/d4076543b9375cccb6cd2268be58cc647a655ac5))
+* **nix:** Add `apps` and `formatter` to flake ([#176](https://github.com/speedo17/jailoc/issues/176)) ([66878f8](https://github.com/speedo17/jailoc/commit/66878f8293a32c8f21216e22cb892018b87dd2f2))
+
+
+### Bug Fixes
+
+* **cmd:** close parent's PTY slave fd to unblock attach on child exit ([#187](https://github.com/speedo17/jailoc/issues/187)) ([9f1e1f2](https://github.com/speedo17/jailoc/commit/9f1e1f22267019adeb6881a75e34e59907c7fe0e))
+* **cmd:** enable Windows cross-compilation with PTY fallback ([#161](https://github.com/speedo17/jailoc/issues/161)) ([e90baf5](https://github.com/speedo17/jailoc/commit/e90baf5040cf62080001317f547de1ff6d484ec7))
+* **cmd:** replace creack/pty with go-pty for cross-platform PTY support ([#166](https://github.com/speedo17/jailoc/issues/166)) ([5ad0cc1](https://github.com/speedo17/jailoc/commit/5ad0cc18a29f3074b9525a12ec21649133ee66c9))
+* **cmd:** unwrap build errors, remove premature startup message ([#180](https://github.com/speedo17/jailoc/issues/180)) ([252cf1f](https://github.com/speedo17/jailoc/commit/252cf1fed20080d492e1cbb926300b9ca88ecb77))
+* **config:** mount OpenCode config directories read-write ([#156](https://github.com/speedo17/jailoc/issues/156)) ([178f857](https://github.com/speedo17/jailoc/commit/178f8574adb60eddfefc83931404ea589f71a65e))
+* **config:** use filepath.IsAbs for cross-platform path validation ([#165](https://github.com/speedo17/jailoc/issues/165)) ([6baf43e](https://github.com/speedo17/jailoc/commit/6baf43e0c60343733cad589f3689c61f37777178))
+* **deps:** bump actions/setup-go in the all group across 1 directory ([#200](https://github.com/speedo17/jailoc/issues/200)) ([bf2f9a7](https://github.com/speedo17/jailoc/commit/bf2f9a7348647a5782fdcd45c36e93fd369fff26))
+* **deps:** bump brace-expansion from 2.1.0 to 2.1.2 ([#207](https://github.com/speedo17/jailoc/issues/207)) ([3d4494c](https://github.com/speedo17/jailoc/commit/3d4494cd9d9ca7f909b419c333f34c96be646685))
+* **deps:** bump brace-expansion from 2.1.2 to 2.1.4 ([#212](https://github.com/speedo17/jailoc/issues/212)) ([309b823](https://github.com/speedo17/jailoc/commit/309b823be696bf1a148a080763a5fa53cab9baea))
+* **deps:** bump browserslist from 4.28.2 to 4.28.9 ([#225](https://github.com/speedo17/jailoc/issues/225)) ([36bb37a](https://github.com/speedo17/jailoc/commit/36bb37ad2a3f979aefc5f2b721f4e98796bc80a0))
+* **deps:** bump github.com/moby/go-archive from 0.2.0 to 0.3.0 ([#219](https://github.com/speedo17/jailoc/issues/219)) ([e954c2b](https://github.com/speedo17/jailoc/commit/e954c2b15bd5effc3debb0f5a230cb7f2a770e2a))
+* **deps:** bump google.golang.org/grpc from 1.81.1 to 1.82.1 ([#206](https://github.com/speedo17/jailoc/issues/206)) ([b7e4cd8](https://github.com/speedo17/jailoc/commit/b7e4cd8d02762aadbcb2e9a8635d14e12b6d4a87))
+* **deps:** bump idna in the uv group across 1 directory ([#191](https://github.com/speedo17/jailoc/issues/191)) ([9192b81](https://github.com/speedo17/jailoc/commit/9192b81ab6b205b444927437e518652409f00e9e))
+* **deps:** bump pymdown-extensions in the uv group across 1 directory ([#214](https://github.com/speedo17/jailoc/issues/214)) ([66cd755](https://github.com/speedo17/jailoc/commit/66cd7555d093ff2704bb45e2286761a4f5653dda))
+* **deps:** bump seroval from 1.5.2 to 1.5.6 ([#211](https://github.com/speedo17/jailoc/issues/211)) ([e4610d1](https://github.com/speedo17/jailoc/commit/e4610d163b45a5ad985c5af01784c69972abcf28))
+* **deps:** bump the all group across 1 directory with 6 updates ([#205](https://github.com/speedo17/jailoc/issues/205)) ([6dfbf1c](https://github.com/speedo17/jailoc/commit/6dfbf1c7464b2751521a997a7295eedece98a71a))
+* **deps:** bump the go-minor-patch group across 1 directory with 2 updates ([#189](https://github.com/speedo17/jailoc/issues/189)) ([3847a0b](https://github.com/speedo17/jailoc/commit/3847a0b5a3adf7dbd4415da2d618f4e3277be70f))
+* **deps:** bump the go-minor-patch group across 1 directory with 4 updates ([#203](https://github.com/speedo17/jailoc/issues/203)) ([6d7b1de](https://github.com/speedo17/jailoc/commit/6d7b1de3ef119cca609b2e214e13d1dd45235cee))
+* **deps:** bump the go-minor-patch group across 1 directory with 4 updates ([#218](https://github.com/speedo17/jailoc/issues/218)) ([e5ada67](https://github.com/speedo17/jailoc/commit/e5ada67d676f8071d4ded1bc89968d321b03804d))
+* **deps:** bump the go-minor-patch group with 4 updates ([#197](https://github.com/speedo17/jailoc/issues/197)) ([a26e592](https://github.com/speedo17/jailoc/commit/a26e59226798a318969ba296d1d2ddb34cd4c16c))
+* **docker:** clarify overlay build status message ([#162](https://github.com/speedo17/jailoc/issues/162)) ([f0aa418](https://github.com/speedo17/jailoc/commit/f0aa41809b81e17e2ca1281caadf5d0f3613211a))
+* **docker:** prepend ARG BASE to overlay Dockerfiles ([#182](https://github.com/speedo17/jailoc/issues/182)) ([62f443b](https://github.com/speedo17/jailoc/commit/62f443b9d5cf3cdf708fdb1d56e7ec14f56b86b8))
+* **entrypoint:** pre-create OpenCode config .gitignore to prevent EROFS crash ([#148](https://github.com/speedo17/jailoc/issues/148)) ([ce08080](https://github.com/speedo17/jailoc/commit/ce08080e56acd042584148cb2989ecff086ff5a6))
+* **release:** enable force-tag-creation for draft releases ([#125](https://github.com/speedo17/jailoc/issues/125)) ([37a2469](https://github.com/speedo17/jailoc/commit/37a2469e4735d5630113ca41e78b5f0298738468))
+
+
+### Documentation
+
+* **how-to:** add troubleshooting page ([#174](https://github.com/speedo17/jailoc/issues/174)) ([948d93e](https://github.com/speedo17/jailoc/commit/948d93e6b303802956629e99aa73154271f47fab))
+* **network:** document HTTP proxy allowlisting for private networks ([#146](https://github.com/speedo17/jailoc/issues/146)) ([6671a6c](https://github.com/speedo17/jailoc/commit/6671a6c43c17420debd3ab540819523df577471a))
+
+
+### Miscellaneous
+
+* **deps:** bump goreleaser/goreleaser-action in the all group ([#175](https://github.com/speedo17/jailoc/issues/175)) ([132de64](https://github.com/speedo17/jailoc/commit/132de64eef360549d435347ee6087ecd7d904de1))
+
 ## [1.18.0](https://github.com/seznam/jailoc/compare/v1.17.0...v1.18.0) (2026-08-19)
 
 
